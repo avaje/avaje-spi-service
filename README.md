@@ -28,13 +28,17 @@ public class MyProvider implements SomeSPI {
   ...
 }
 ```
-You get the `META-INF/services/com.example.SomeSPI` file whose content is org.acme.MyProvider.
+You get the `META-INF/services/com.example.SomeSPI` file whose content is `org.acme.MyProvider`.
 
 If you have multiple interfaces and/or base type, the library cannot infer the contract type. In such a case, specify the contract type explicitly by giving it to `@ServiceProvider` like this:
 
 ```java
 @ServiceProvider(ContractType.class)
-public class MyProvider extends AbstractSet implements Comparable, Serializable, Closeable {
+public class MyProvider extends AbstractSet implements Comparable, Serializable, ContractType {
   ...
 }
 ```
+
+## Related Works
+- [Pistachio](https://github.com/jstachio/pistachio)
+
