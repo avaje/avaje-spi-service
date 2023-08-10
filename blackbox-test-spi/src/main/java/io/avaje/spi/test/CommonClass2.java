@@ -1,6 +1,7 @@
-package io.avaje.spi;
+package io.avaje.spi.test;
 
-import io.avaje.spi.SPIInterface.NestedSPIInterface;
+import io.avaje.spi.ServiceProvider;
+import io.avaje.spi.test.SPIInterface.NestedSPIInterface;
 
 @ServiceProvider({SPIInterface.class, NestedSPIInterface.class})
 public class CommonClass2 implements SPIInterface, NestedSPIInterface {

@@ -22,7 +22,8 @@
 	</properties>
   
 	<modules>
-	  <module>avaje-spi-services</module>
+		<module>avaje-spi-core</module>
+		<module>avaje-spi-service</module>
 	</modules>
   
 	<profiles>
