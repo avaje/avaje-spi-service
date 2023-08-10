@@ -22,7 +22,7 @@
 
     <dependency>
       <groupId>io.avaje</groupId>
-      <artifactId>avaje-spi-services</artifactId>
+      <artifactId>avaje-spi-service</artifactId>
       <version>${project.version}</version>
       <optional>true</optional>
       <scope>provided</scope>
