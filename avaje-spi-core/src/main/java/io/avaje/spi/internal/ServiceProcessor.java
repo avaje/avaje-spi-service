@@ -35,7 +35,7 @@ import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 
-//@GeneratePrism(ServiceProvider.class)
+// @GeneratePrism(ServiceProvider.class)
 @SupportedAnnotationTypes(ServiceProviderPrism.PRISM_TYPE)
 public class ServiceProcessor extends AbstractProcessor {
 
@@ -63,7 +63,7 @@ public class ServiceProcessor extends AbstractProcessor {
   public boolean process(Set<? extends TypeElement> tes, RoundEnvironment roundEnv) {
     final var annotated =
         roundEnv.getElementsAnnotatedWith(element(ServiceProviderPrism.PRISM_TYPE));
-System.out.println("s");
+
     // discover services from the current compilation sources
     for (final var type : ElementFilter.typesIn(annotated)) {
 
@@ -82,9 +82,7 @@ System.out.println("s");
     }
     if (roundEnv.processingOver()) {
       write();
-      System.err.println("sss");
     }
-    System.err.println("ss");
     return false;
   }
 
