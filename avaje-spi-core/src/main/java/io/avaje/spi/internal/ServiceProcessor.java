@@ -10,9 +10,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -174,9 +176,7 @@ public class ServiceProcessor extends AbstractProcessor {
     }
 
     for (final var m : spis) {
-      if (!hasInterfaces && !hasBaseClass
-          || interfaces.stream().map(Object::toString).noneMatch(m.toString()::equals)
-              && !baseClass.toString().equals(m.toString())) {
+      if (!hasInterfaces && !hasBaseClass || !isAssignable2Interface(type, m)) {
         logError(type, "Service Provider does not extend %s", m);
       } else if (m instanceof DeclaredType) {
         typeElementList.add(asElement(m));
@@ -212,5 +212,19 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private void logDebug(String msg, Object... args) {
     messager.printMessage(Diagnostic.Kind.NOTE, String.format(msg, args));
+  }
+
+  private boolean isAssignable2Interface(Element type, TypeMirror superType) {
+    return Optional.ofNullable(type).stream()
+        .flatMap(this::superTypes)
+        .anyMatch(superType.toString()::equals);
+  }
+
+  private Stream<String> superTypes(Element element) {
+    return types.directSupertypes(element.asType()).stream()
+        .filter(type -> !type.toString().contains("java.lang.Object"))
+        .map(superType -> (TypeElement) types.asElement(superType))
+        .flatMap(e -> Stream.concat(superTypes(e), Stream.of(e)))
+        .map(Object::toString);
   }
 }

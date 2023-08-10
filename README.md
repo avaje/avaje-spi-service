@@ -3,7 +3,7 @@ Uses Annotation processing to automatically adds `META-INF/services` entries for
 
 ## Usage
 ### 1. Add dependency:
-```
+```xml
 <dependency>
   <groupId>io.avaje</groupId>
   <artifactId>avaje-spi-service</artifactId>
