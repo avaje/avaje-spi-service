@@ -23,6 +23,11 @@ import java.lang.annotation.Target;
 @Target(TYPE)
 @Retention(SOURCE)
 public @interface ServiceProvider {
-  /** Returns the interfaces implemented by this service provider. */
+
+  /**
+   * The specific interface to generate a service registration.
+   *
+   * @return if none are defined the SPI interface will be inferred.
+   */
   Class<?>[] value() default {};
 }

@@ -5,12 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Set;
 
 import javax.tools.JavaFileObject;
@@ -44,6 +41,14 @@ class ServiceProcessorTest {
     task.setProcessors(Arrays.asList(new ServiceProcessor()));
 
     assertThat(task.call()).isTrue();
+
+    assertThat(Paths.get("io.avaje.spi.SPIInterface").toAbsolutePath().toFile().exists()).isTrue();
+    assertThat(
+            Paths.get(" io.avaje.spi.SPIInterface$NestedSPIInterface")
+                .toAbsolutePath()
+                .toFile()
+                .exists())
+        .isTrue();
   }
 
   private Iterable<JavaFileObject> getSourceFiles(String source) throws Exception {
