@@ -5,8 +5,8 @@
 		<artifactId>avaje-spi-parent</artifactId>
 		<version>1.0-SNAPSHOT</version>
 	</parent>
-	<artifactId>avaje-spi-services</artifactId>
-	<name>avaje-spi</name>
+	<artifactId>avaje-spi-core</artifactId>
+	<name>avaje-spi-core</name>
 	<description>Service META-INF writer</description>
 	<scm>
 		<developerConnection>scm:git:git@github.com:avaje/avaje-spi.git</developerConnection>

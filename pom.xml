@@ -18,10 +18,12 @@
 
 	<properties>
 	  <nexus.staging.autoReleaseAfterClose>true</nexus.staging.autoReleaseAfterClose>
+	  <surefire.useModulePath>false</surefire.useModulePath>
 	</properties>
   
 	<modules>
-	  <module>avaje-spi-services</module>
+		<module>avaje-spi-core</module>
+		<module>avaje-spi-service</module>
 	</modules>
   
 	<profiles>

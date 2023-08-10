@@ -1,4 +1,4 @@
-package io.avaje.spi;
+package io.avaje.spi.test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,13 +24,13 @@ class ServiceProcessorTest {
 
   @AfterEach
   void deleteGeneratedFiles() throws IOException {
-    Paths.get("io.avaje.spi.SPIInterface").toAbsolutePath().toFile().delete();
-    Paths.get(" io.avaje.spi.SPIInterface$NestedSPIInterface").toAbsolutePath().toFile().delete();
+    Paths.get("io.avaje.spi.test.SPIInterface").toAbsolutePath().toFile().delete();
+    Paths.get(" io.avaje.spi.test.SPIInterface$NestedSPIInterface").toAbsolutePath().toFile().delete();
   }
 
   @Test
   void runAnnotationProcessor() throws Exception {
-    final var source = Paths.get("src").toAbsolutePath().toString();
+    final var source = Paths.get("src/main/java/io/").toAbsolutePath().toString();
 
     final Iterable files = getSourceFiles(source);
 
@@ -42,9 +42,9 @@ class ServiceProcessorTest {
 
     assertThat(task.call()).isTrue();
 
-    assertThat(Paths.get("io.avaje.spi.SPIInterface").toAbsolutePath().toFile().exists()).isTrue();
+    assertThat(Paths.get("io.avaje.spi.test.SPIInterface").toAbsolutePath().toFile().exists()).isTrue();
     assertThat(
-            Paths.get("io.avaje.spi.SPIInterface$NestedSPIInterface")
+            Paths.get("io.avaje.spi.test.SPIInterface$NestedSPIInterface")
                 .toAbsolutePath()
                 .toFile()
                 .exists())

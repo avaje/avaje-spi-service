@@ -35,10 +35,7 @@ import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 
-import io.avaje.prism.GeneratePrism;
-import io.avaje.spi.ServiceProvider;
-
-@GeneratePrism(ServiceProvider.class)
+// @GeneratePrism(ServiceProvider.class)
 @SupportedAnnotationTypes(ServiceProviderPrism.PRISM_TYPE)
 public class ServiceProcessor extends AbstractProcessor {
 
@@ -86,7 +83,6 @@ public class ServiceProcessor extends AbstractProcessor {
     if (roundEnv.processingOver()) {
       write();
     }
-
     return false;
   }
 
