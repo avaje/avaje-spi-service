@@ -44,7 +44,7 @@ class ServiceProcessorTest {
 
     assertThat(Paths.get("io.avaje.spi.SPIInterface").toAbsolutePath().toFile().exists()).isTrue();
     assertThat(
-            Paths.get(" io.avaje.spi.SPIInterface$NestedSPIInterface")
+            Paths.get("io.avaje.spi.SPIInterface$NestedSPIInterface")
                 .toAbsolutePath()
                 .toFile()
                 .exists())
