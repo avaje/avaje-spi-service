@@ -112,13 +112,15 @@ public class ServiceProcessor extends AbstractProcessor {
     for (final var e : services.entrySet()) {
       final String contract = e.getKey();
       try {
-        final FileObject f =
+        final FileObject file =
             filer.getResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract);
-        final BufferedReader r =
-            new BufferedReader(new InputStreamReader(f.openInputStream(), StandardCharsets.UTF_8));
+        final BufferedReader buffer =
+            new BufferedReader(new InputStreamReader(file.openInputStream(), StandardCharsets.UTF_8));
         String line;
-        while ((line = r.readLine()) != null) e.getValue().add(line);
-        r.close();
+        while ((line = buffer.readLine()) != null) {
+          e.getValue().add(line);
+        }
+        buffer.close();
       } catch (final FileNotFoundException | java.nio.file.NoSuchFileException x) {
         // missing and thus not created yet
       } catch (final IOException x) {
@@ -135,13 +137,15 @@ public class ServiceProcessor extends AbstractProcessor {
       try {
         final String contract = e.getKey();
         logDebug("Writing META-INF/services/%s", contract);
-        final FileObject f =
+        final FileObject file =
             processingEnv
                 .getFiler()
                 .createResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract);
         final PrintWriter pw =
-            new PrintWriter(new OutputStreamWriter(f.openOutputStream(), "UTF-8"));
-        for (final String value : e.getValue()) pw.println(value);
+            new PrintWriter(new OutputStreamWriter(file.openOutputStream(), StandardCharsets.UTF_8));
+        for (final String value : e.getValue()) {
+          pw.println(value);
+        }
         pw.close();
       } catch (final IOException x) {
         logError("Failed to write service definition files: %s", x);
@@ -175,11 +179,11 @@ public class ServiceProcessor extends AbstractProcessor {
       return typeElementList;
     }
 
-    for (final var m : spis) {
-      if (!hasInterfaces && !hasBaseClass || !isAssignable2Interface(type, m)) {
-        logError(type, "Service Provider does not extend %s", m);
-      } else if (m instanceof DeclaredType) {
-        typeElementList.add(asElement(m));
+    for (final var spiMirror : spis) {
+      if (!hasInterfaces && !hasBaseClass || !isAssignable2Interface(type, spiMirror)) {
+        logError(type, "Service Provider does not extend %s", spiMirror);
+      } else if (spiMirror instanceof DeclaredType) {
+        typeElementList.add(asElement(spiMirror));
       } else {
         logError(type, "Invalid type specified as the SPI");
       }
