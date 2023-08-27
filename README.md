@@ -1,3 +1,7 @@
+[![Build](https://github.com/avaje/avaje-spi-service/actions/workflows/build.yml/badge.svg)](https://github.com/avaje/avaje-spi-service/actions/workflows/build.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/avaje/avaje-spi-service/blob/master/LICENSE)
+[![Maven Central : avaje-spi-service](https://maven-badges.herokuapp.com/maven-central/io.avaje/avaje-spi-service/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.avaje/avaje-spi-service)
+[![Discord](https://img.shields.io/discord/1074074312421683250?color=%237289da&label=discord)](https://discord.gg/Qcqf9R27BR)
 # avaje-spi-service
 Uses Annotation processing to automatically adds `META-INF/services` entries for classes
 
