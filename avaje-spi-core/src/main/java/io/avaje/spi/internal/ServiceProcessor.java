@@ -229,7 +229,7 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private void logWarn(Element e, String msg, Object... args) {
-    messager.printMessage(Diagnostic.Kind.MANDATORY_WARNING, String.format(msg, args), e);
+    messager.printMessage(Diagnostic.Kind.WARNING, String.format(msg, args), e);
   }
 
   private void logDebug(String msg, Object... args) {
