@@ -37,10 +37,25 @@ You get the `META-INF/services/com.example.SomeSPI` file whose content is `org.a
 If you have multiple interfaces and/or base type, the library cannot infer the contract type. In such a case, specify the contract type explicitly by giving it to `@ServiceProvider` like this:
 
 ```java
-@ServiceProvider(ContractType.class)
-public class MyProvider extends AbstractSet implements Comparable, Serializable, ContractType {
+@ServiceProvider(SomeSPI.class)
+public class MyExtendedProvider extends AbstractSet implements Comparable, Serializable, ContractType {
   ...
 }
+```
+
+### 3. `module-info` validation
+For modular projects, the processor will throw a compile error describing what `provides` statements you have missed. So if you define the SPI like the the previous steps, and have a module setup like the following:
+```java
+module my.module {
+
+  requires static io.avaje.spi;
+
+}
+```
+You'll get the following compile error:
+```
+ Compilation failure /src/main/java/module-info.java:[1,1]
+ Missing `provides SomeSPI with MyProvider, MyExtendedProvider;`
 ```
 
 ## Related Works
