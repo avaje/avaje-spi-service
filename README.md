@@ -38,7 +38,7 @@ If you have multiple interfaces and/or base type, the library cannot infer the c
 
 ```java
 @ServiceProvider(SomeSPI.class)
-public class MyExtendedProvider extends AbstractSet implements Comparable, Serializable, ContractType {
+public class MyExtendedProvider extends AbstractSet implements Comparable, Serializable, SomeSPI {
   ...
 }
 ```
