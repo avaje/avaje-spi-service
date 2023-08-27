@@ -1,7 +1,8 @@
+import io.avaje.spi.test.SPIInterface;
 module io.avaje.spi.blackbox {
   requires io.avaje.spi;
   requires java.compiler;
-  provides io.avaje.spi.test.SPIInterface with
+  provides SPIInterface with
   		io.avaje.spi.test.CommonClass,
 
   		io.avaje.spi.test.CommonClass2;
