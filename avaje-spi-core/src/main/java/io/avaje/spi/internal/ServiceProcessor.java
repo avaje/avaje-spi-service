@@ -1,5 +1,8 @@
 package io.avaje.spi.internal;
 
+import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
+
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -8,12 +11,16 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -26,6 +33,7 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
@@ -37,7 +45,9 @@ import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 
-// @GeneratePrism(ServiceProvider.class)
+import io.avaje.prism.GenerateUtils;
+
+@GenerateUtils
 @SupportedAnnotationTypes(ServiceProviderPrism.PRISM_TYPE)
 public class ServiceProcessor extends AbstractProcessor {
 
@@ -47,11 +57,15 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private final Map<String, Set<String>> services = new ConcurrentHashMap<>();
+  private final Map<String, Set<String>> foundServices = new HashMap<>();
 
+  Pattern regex = Pattern.compile("provides\\s+(.*?)\\s+with");
   private Elements elements;
   private Messager messager;
 
   private Types types;
+
+  private ModuleElement moduleElement;
 
   @Override
   public synchronized void init(ProcessingEnvironment env) {
@@ -82,8 +96,10 @@ public class ServiceProcessor extends AbstractProcessor {
         v.add(elements.getBinaryName(type).toString());
       }
     }
+    findModule(tes, roundEnv);
     if (roundEnv.processingOver()) {
       write();
+      validateModule();
     }
     return false;
   }
@@ -115,7 +131,8 @@ public class ServiceProcessor extends AbstractProcessor {
         final FileObject file =
             filer.getResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract);
         final BufferedReader buffer =
-            new BufferedReader(new InputStreamReader(file.openInputStream(), StandardCharsets.UTF_8));
+            new BufferedReader(
+                new InputStreamReader(file.openInputStream(), StandardCharsets.UTF_8));
         String line;
         while ((line = buffer.readLine()) != null) {
           e.getValue().add(line);
@@ -142,7 +159,8 @@ public class ServiceProcessor extends AbstractProcessor {
                 .getFiler()
                 .createResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract);
         final PrintWriter pw =
-            new PrintWriter(new OutputStreamWriter(file.openOutputStream(), StandardCharsets.UTF_8));
+            new PrintWriter(
+                new OutputStreamWriter(file.openOutputStream(), StandardCharsets.UTF_8));
         for (final String value : e.getValue()) {
           pw.println(value);
         }
@@ -158,7 +176,6 @@ public class ServiceProcessor extends AbstractProcessor {
     final var spis = ServiceProviderPrism.getInstanceOn(type).value();
 
     final var interfaces = type.getInterfaces();
-    final var baseClass = type.getSuperclass();
     final boolean hasBaseClass =
         type.getSuperclass().getKind() != TypeKind.NONE && !isObject(type.getSuperclass());
 
@@ -185,7 +202,7 @@ public class ServiceProcessor extends AbstractProcessor {
       } else if (spiMirror instanceof DeclaredType) {
         typeElementList.add(asElement(spiMirror));
       } else {
-        logError(type, "Invalid type specified as the SPI");
+        logError(type, "Invalid type specified as the Service Provider Interface");
       }
     }
     return typeElementList;
@@ -214,6 +231,10 @@ public class ServiceProcessor extends AbstractProcessor {
     messager.printMessage(Diagnostic.Kind.ERROR, String.format(msg, args));
   }
 
+  private void logWarn(Element e, String msg, Object... args) {
+    messager.printMessage(Diagnostic.Kind.WARNING, String.format(msg, args), e);
+  }
+
   private void logDebug(String msg, Object... args) {
     messager.printMessage(Diagnostic.Kind.NOTE, String.format(msg, args));
   }
@@ -230,5 +251,124 @@ public class ServiceProcessor extends AbstractProcessor {
         .map(superType -> (TypeElement) types.asElement(superType))
         .flatMap(e -> Stream.concat(superTypes(e), Stream.of(e)))
         .map(Object::toString);
+  }
+
+  ModuleElement findModule(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    if (this.moduleElement == null) {
+      moduleElement =
+          annotations.stream()
+              .map(roundEnv::getElementsAnnotatedWith)
+              .flatMap(Collection::stream)
+              .findAny()
+              .map(this::getModuleElement)
+              .orElseThrow();
+    }
+    return moduleElement;
+  }
+
+  ModuleElement getModuleElement(Element e) {
+    if (e == null || e instanceof ModuleElement) {
+      return (ModuleElement) e;
+    }
+    return getModuleElement(e.getEnclosingElement());
+  }
+
+  void validateModule() {
+    if (moduleElement != null && !moduleElement.isUnnamed()) {
+      // Keep track of missing strings and their corresponding keys
+      Map<String, Set<String>> missingStringsMap = new HashMap<>();
+      services.forEach(
+          (k, v) ->
+              missingStringsMap.put(
+                  ProcessorUtils.shortType(k).replace("$", "."),
+                  v.stream().map(ProcessorUtils::shortType).collect(toSet())));
+
+      try (var inputStream =
+              processingEnv
+                  .getFiler()
+                  .getResource(StandardLocation.SOURCE_PATH, "", "module-info.java")
+                  .toUri()
+                  .toURL()
+                  .openStream();
+          var reader = new BufferedReader(new InputStreamReader(inputStream))) {
+        String line;
+        String service = null;
+        boolean inProvides = false;
+        while ((line = reader.readLine()) != null) {
+
+          if (line.contains("provides")) {
+            inProvides = true;
+            var matcher = regex.matcher(line);
+            if (matcher.find()) {
+
+              service = ProcessorUtils.shortType(matcher.group(1)).replace("$", ".");
+            }
+          }
+
+          if (!inProvides || line.isBlank()) {
+            staticWarning(line);
+            continue;
+          }
+
+          processLine(line, missingStringsMap, service);
+
+          if (line.contains(";")) {
+            inProvides = false;
+          }
+        }
+
+        logModuleError(missingStringsMap);
+
+      } catch (Exception e) {
+        // can't read module
+        e.printStackTrace();
+      }
+    }
+  }
+
+  private void logModuleError(Map<String, Set<String>> missingStringsMap) {
+    final Map<String, String> shortQualifiedMap =
+        services.keySet().stream()
+            .collect(toMap(s -> ProcessorUtils.shortType(s).replace("$", "."), s -> s));
+    missingStringsMap.forEach(
+        (k, v) -> {
+          if (!v.isEmpty()) {
+            logError(
+                moduleElement,
+                "Missing `provides %s with %s;`",
+                k,
+                String.join(", ", services.get(shortQualifiedMap.get(k))));
+          }
+        });
+  }
+
+  private void staticWarning(String line) {
+    if (line.contains("requires") && line.contains("io.avaje.spi") && !line.contains("static")) {
+      logWarn(moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
+    }
+  }
+
+  // Process a single line of input and check for missing strings
+  private void processLine(
+      String line, Map<String, Set<String>> missingStringsMap, String service) {
+    Set<String> stringSet = missingStringsMap.computeIfAbsent(service, k -> new HashSet<>());
+    Set<String> found = foundServices.computeIfAbsent(service, k -> new HashSet<>());
+    if (!found.containsAll(stringSet)) {
+      findMissingStrings(line, stringSet, found, service);
+    }
+    if (!foundServices.isEmpty()) {
+      stringSet.removeAll(found);
+    }
+  }
+
+  // Find strings from the set that are missing in the input string
+  private void findMissingStrings(
+      String input, Set<String> stringSet, Set<String> foundStrings, String key) {
+
+    for (var str : stringSet) {
+      if (input.contains(str)) {
+        foundStrings.add(str);
+      }
+    }
   }
 }
