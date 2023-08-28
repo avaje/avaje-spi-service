@@ -13,14 +13,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -57,9 +55,7 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private final Map<String, Set<String>> services = new ConcurrentHashMap<>();
-  private final Map<String, Set<String>> foundServices = new HashMap<>();
 
-  Pattern regex = Pattern.compile("provides\\s+(.*?)\\s+with");
   private Elements elements;
   private Messager messager;
 
@@ -127,17 +123,17 @@ public class ServiceProcessor extends AbstractProcessor {
     final Filer filer = processingEnv.getFiler();
     for (final var e : services.entrySet()) {
       final String contract = e.getKey();
-      try {
-        final FileObject file =
-            filer.getResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract);
-        final BufferedReader buffer =
-            new BufferedReader(
-                new InputStreamReader(file.openInputStream(), StandardCharsets.UTF_8));
+      try (final var file =
+              filer
+                  .getResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract)
+                  .openInputStream();
+          final var buffer =
+              new BufferedReader(new InputStreamReader(file, StandardCharsets.UTF_8)); ) {
+
         String line;
         while ((line = buffer.readLine()) != null) {
           e.getValue().add(line);
         }
-        buffer.close();
       } catch (final FileNotFoundException | java.nio.file.NoSuchFileException x) {
         // missing and thus not created yet
       } catch (final IOException x) {
@@ -151,20 +147,20 @@ public class ServiceProcessor extends AbstractProcessor {
 
     // Write the service files
     for (final Map.Entry<String, Set<String>> e : services.entrySet()) {
-      try {
-        final String contract = e.getKey();
-        logDebug("Writing META-INF/services/%s", contract);
-        final FileObject file =
-            processingEnv
-                .getFiler()
-                .createResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract);
-        final PrintWriter pw =
-            new PrintWriter(
-                new OutputStreamWriter(file.openOutputStream(), StandardCharsets.UTF_8));
+
+      final String contract = e.getKey();
+      logDebug("Writing META-INF/services/%s", contract);
+      try (final var file =
+              processingEnv
+                  .getFiler()
+                  .createResource(
+                      StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract)
+                  .openOutputStream();
+          final var pw = new PrintWriter(new OutputStreamWriter(file, StandardCharsets.UTF_8)); ) {
+
         for (final String value : e.getValue()) {
           pw.println(value);
         }
-        pw.close();
       } catch (final IOException x) {
         logError("Failed to write service definition files: %s", x);
       }
@@ -275,11 +271,11 @@ public class ServiceProcessor extends AbstractProcessor {
 
   void validateModule() {
     if (moduleElement != null && !moduleElement.isUnnamed()) {
-      // Keep track of missing strings and their corresponding keys
-      Map<String, Set<String>> missingStringsMap = new HashMap<>();
+      // Keep track of missing services and their impls
+      Map<String, Set<String>> missingServicesMap = new HashMap<>();
       services.forEach(
           (k, v) ->
-              missingStringsMap.put(
+              missingServicesMap.put(
                   ProcessorUtils.shortType(k).replace("$", "."),
                   v.stream().map(ProcessorUtils::shortType).collect(toSet())));
 
@@ -291,33 +287,12 @@ public class ServiceProcessor extends AbstractProcessor {
                   .toURL()
                   .openStream();
           var reader = new BufferedReader(new InputStreamReader(inputStream))) {
-        String line;
-        String service = null;
-        boolean inProvides = false;
-        while ((line = reader.readLine()) != null) {
-
-          if (line.contains("provides")) {
-            inProvides = true;
-            var matcher = regex.matcher(line);
-            if (matcher.find()) {
-
-              service = ProcessorUtils.shortType(matcher.group(1)).replace("$", ".");
-            }
-          }
-
-          if (!inProvides || line.isBlank()) {
-            staticWarning(line);
-            continue;
-          }
-
-          processLine(line, missingStringsMap, service);
-
-          if (line.contains(";")) {
-            inProvides = false;
-          }
+        ModuleReader.read(missingServicesMap, reader);
+        if (ModuleReader.staticWarning()) {
+          logWarn(
+              moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
         }
-
-        logModuleError(missingStringsMap);
+        logModuleError(missingServicesMap);
 
       } catch (Exception e) {
         // can't read module
@@ -340,35 +315,5 @@ public class ServiceProcessor extends AbstractProcessor {
                 String.join(", ", services.get(shortQualifiedMap.get(k))));
           }
         });
-  }
-
-  private void staticWarning(String line) {
-    if (line.contains("requires") && line.contains("io.avaje.spi") && !line.contains("static")) {
-      logWarn(moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
-    }
-  }
-
-  // Process a single line of input and check for missing strings
-  private void processLine(
-      String line, Map<String, Set<String>> missingStringsMap, String service) {
-    Set<String> stringSet = missingStringsMap.computeIfAbsent(service, k -> new HashSet<>());
-    Set<String> found = foundServices.computeIfAbsent(service, k -> new HashSet<>());
-    if (!found.containsAll(stringSet)) {
-      findMissingStrings(line, stringSet, found, service);
-    }
-    if (!foundServices.isEmpty()) {
-      stringSet.removeAll(found);
-    }
-  }
-
-  // Find strings from the set that are missing in the input string
-  private void findMissingStrings(
-      String input, Set<String> stringSet, Set<String> foundStrings, String key) {
-
-    for (var str : stringSet) {
-      if (input.contains(str)) {
-        foundStrings.add(str);
-      }
-    }
   }
 }
