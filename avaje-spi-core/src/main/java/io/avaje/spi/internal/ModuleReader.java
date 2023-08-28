@@ -19,7 +19,7 @@ public class ModuleReader {
 
   private static boolean staticWarning;
 
-  public static void read(Map<String, Set<String>> missingStringsMap, BufferedReader reader)
+  public static void read(Map<String, Set<String>> missingServicesMap, BufferedReader reader)
       throws IOException {
     String line;
     String service = null;
@@ -46,7 +46,7 @@ public class ModuleReader {
         continue;
       }
 
-      processLine(line, missingStringsMap, service);
+      processLine(line, missingServicesMap, service);
 
       //  provides statement has ended
       if (line.contains(";")) {
@@ -57,30 +57,28 @@ public class ModuleReader {
 
   /** as service implementations are discovered, remove from missing strings map */
   private static void processLine(
-      String line, Map<String, Set<String>> missingStringsMap, String service) {
-    Set<String> stringSet = missingStringsMap.get(service);
-    Set<String> foundStrings = foundServices.computeIfAbsent(service, k -> new HashSet<>());
-    if (!foundStrings.containsAll(stringSet)) {
-      addFoundStrings(line, stringSet, foundStrings);
+      String line, Map<String, Set<String>> missingServicesMap, String service) {
+    Set<String> missingServiceImpls = missingServicesMap.get(service);
+    Set<String> foundServiceImpls = foundServices.computeIfAbsent(service, k -> new HashSet<>());
+    if (!foundServiceImpls.containsAll(missingServiceImpls)) {
+      addFoundStrings(line, missingServiceImpls, foundServiceImpls);
     }
-    if (!foundServices.isEmpty()) {
-      stringSet.removeAll(foundStrings);
-    }
+    missingServiceImpls.removeAll(foundServiceImpls);
   }
 
   /**
    * as service implementations are discovered, add to found strings set for a given service
    *
    * @param input the line to check
-   * @param stringSet the services we're looking for
-   * @param foundStrings where we'll store the results if we have a match
+   * @param missingServiceImpls the services we're looking for
+   * @param foundServiceImpls where we'll store the results if we have a match
    */
   private static void addFoundStrings(
-      String input, Set<String> stringSet, Set<String> foundStrings) {
+      String input, Set<String> missingServiceImpls, Set<String> foundServiceImpls) {
 
-    for (var str : stringSet) {
-      if (input.contains(str)) {
-        foundStrings.add(str);
+    for (var impl : missingServiceImpls) {
+      if (input.contains(impl)) {
+        foundServiceImpls.add(impl);
       }
     }
   }

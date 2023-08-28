@@ -271,11 +271,11 @@ public class ServiceProcessor extends AbstractProcessor {
 
   void validateModule() {
     if (moduleElement != null && !moduleElement.isUnnamed()) {
-      // Keep track of missing strings and their corresponding keys
-      Map<String, Set<String>> missingStringsMap = new HashMap<>();
+      // Keep track of missing services and their impls
+      Map<String, Set<String>> missingServicesMap = new HashMap<>();
       services.forEach(
           (k, v) ->
-              missingStringsMap.put(
+              missingServicesMap.put(
                   ProcessorUtils.shortType(k).replace("$", "."),
                   v.stream().map(ProcessorUtils::shortType).collect(toSet())));
 
@@ -287,12 +287,12 @@ public class ServiceProcessor extends AbstractProcessor {
                   .toURL()
                   .openStream();
           var reader = new BufferedReader(new InputStreamReader(inputStream))) {
-        ModuleReader.read(missingStringsMap, reader);
+        ModuleReader.read(missingServicesMap, reader);
         if (ModuleReader.staticWarning()) {
           logWarn(
               moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
         }
-        logModuleError(missingStringsMap);
+        logModuleError(missingServicesMap);
 
       } catch (Exception e) {
         // can't read module
