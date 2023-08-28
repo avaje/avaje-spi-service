@@ -10,5 +10,4 @@ module io.avaje.spi.blackbox {
   		io.avaje.spi. test.CommonClass2;
   exports io.avaje.spi.test;
 
-  provides io.avaje.spi.test.SPIInterface.NestedSPIInterface with CommonClass2;
  }
