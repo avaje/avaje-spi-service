@@ -61,7 +61,7 @@ public class ModuleReader {
     Set<String> stringSet = missingStringsMap.computeIfAbsent(service, k -> new HashSet<>());
     Set<String> foundStrings = foundServices.computeIfAbsent(service, k -> new HashSet<>());
     if (!foundStrings.containsAll(stringSet)) {
-      findMissingStrings(line, stringSet, foundStrings);
+      addFoundStrings(line, stringSet, foundStrings);
     }
     if (!foundServices.isEmpty()) {
       stringSet.removeAll(foundStrings);
@@ -69,7 +69,7 @@ public class ModuleReader {
   }
 
   /** as service implementations are discovered, add to found strings set for a given service */
-  private static void findMissingStrings(
+  private static void addFoundStrings(
       String input, Set<String> stringSet, Set<String> foundStrings) {
 
     for (var str : stringSet) {
