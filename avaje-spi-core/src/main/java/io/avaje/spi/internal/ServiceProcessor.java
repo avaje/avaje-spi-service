@@ -1,5 +1,6 @@
 package io.avaje.spi.internal;
 
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
 import java.io.BufferedReader;
@@ -130,7 +131,8 @@ public class ServiceProcessor extends AbstractProcessor {
         final FileObject file =
             filer.getResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract);
         final BufferedReader buffer =
-            new BufferedReader(new InputStreamReader(file.openInputStream(), StandardCharsets.UTF_8));
+            new BufferedReader(
+                new InputStreamReader(file.openInputStream(), StandardCharsets.UTF_8));
         String line;
         while ((line = buffer.readLine()) != null) {
           e.getValue().add(line);
@@ -157,7 +159,8 @@ public class ServiceProcessor extends AbstractProcessor {
                 .getFiler()
                 .createResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract);
         final PrintWriter pw =
-            new PrintWriter(new OutputStreamWriter(file.openOutputStream(), StandardCharsets.UTF_8));
+            new PrintWriter(
+                new OutputStreamWriter(file.openOutputStream(), StandardCharsets.UTF_8));
         for (final String value : e.getValue()) {
           pw.println(value);
         }
@@ -276,7 +279,13 @@ public class ServiceProcessor extends AbstractProcessor {
       Map<String, Set<String>> missingStringsMap = new HashMap<>();
       services.forEach(
           (k, v) ->
-              missingStringsMap.put(k, v.stream().map(ProcessorUtils::shortType).collect(toSet())));
+              missingStringsMap.put(
+                  ProcessorUtils.shortType(k).replace("$", "."),
+                  v.stream().map(ProcessorUtils::shortType).collect(toSet())));
+
+      final Map<String, String> shortQualifiedMap =
+          services.keySet().stream()
+              .collect(toMap(s -> ProcessorUtils.shortType(s.replace("$", ".")), s -> s));
       try (var inputStream =
               processingEnv
                   .getFiler()
@@ -295,7 +304,7 @@ public class ServiceProcessor extends AbstractProcessor {
             var matcher = regex.matcher(line);
             if (matcher.find()) {
 
-              service = matcher.group(1);
+              service = ProcessorUtils.shortType(matcher.group(1)).replace("$", ".");
             }
           }
 
@@ -325,12 +334,13 @@ public class ServiceProcessor extends AbstractProcessor {
                     moduleElement,
                     "Missing `provides %s with %s;`",
                     k,
-                    String.join(", ", services.get(k)));
+                    String.join(", ", services.get(shortQualifiedMap.get(k))));
               }
             });
 
       } catch (Exception e) {
         // can't read module
+        e.printStackTrace();
       }
     }
   }
@@ -338,9 +348,8 @@ public class ServiceProcessor extends AbstractProcessor {
   // Process a single line of input and check for missing strings
   private void processLine(
       String line, Map<String, Set<String>> missingStringsMap, String service) {
-    Set<String> stringSet = missingStringsMap.get(service);
+    Set<String> stringSet = missingStringsMap.computeIfAbsent(service, k -> new HashSet<>());
     Set<String> found = foundServices.computeIfAbsent(service, k -> new HashSet<>());
-
     if (!found.containsAll(stringSet)) {
       findMissingStrings(line, stringSet, found, service);
     }
