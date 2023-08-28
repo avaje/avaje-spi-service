@@ -58,7 +58,7 @@ public class ModuleReader {
   /** as service implementations are discovered, remove from missing strings map */
   private static void processLine(
       String line, Map<String, Set<String>> missingStringsMap, String service) {
-    Set<String> stringSet = missingStringsMap.computeIfAbsent(service, k -> new HashSet<>());
+    Set<String> stringSet = missingStringsMap.get(service);
     Set<String> foundStrings = foundServices.computeIfAbsent(service, k -> new HashSet<>());
     if (!foundStrings.containsAll(stringSet)) {
       addFoundStrings(line, stringSet, foundStrings);
