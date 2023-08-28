@@ -147,20 +147,20 @@ public class ServiceProcessor extends AbstractProcessor {
 
     // Write the service files
     for (final Map.Entry<String, Set<String>> e : services.entrySet()) {
-      try {
-        final String contract = e.getKey();
-        logDebug("Writing META-INF/services/%s", contract);
-        final FileObject file =
-            processingEnv
-                .getFiler()
-                .createResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract);
-        final PrintWriter pw =
-            new PrintWriter(
-                new OutputStreamWriter(file.openOutputStream(), StandardCharsets.UTF_8));
+
+      final String contract = e.getKey();
+      logDebug("Writing META-INF/services/%s", contract);
+      try (final var file =
+              processingEnv
+                  .getFiler()
+                  .createResource(
+                      StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract)
+                  .openOutputStream();
+          final var pw = new PrintWriter(new OutputStreamWriter(file, StandardCharsets.UTF_8)); ) {
+
         for (final String value : e.getValue()) {
           pw.println(value);
         }
-        pw.close();
       } catch (final IOException x) {
         logError("Failed to write service definition files: %s", x);
       }
