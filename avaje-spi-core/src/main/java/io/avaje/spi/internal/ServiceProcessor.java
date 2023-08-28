@@ -13,14 +13,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -125,17 +123,17 @@ public class ServiceProcessor extends AbstractProcessor {
     final Filer filer = processingEnv.getFiler();
     for (final var e : services.entrySet()) {
       final String contract = e.getKey();
-      try {
-        final FileObject file =
-            filer.getResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract);
-        final BufferedReader buffer =
-            new BufferedReader(
-                new InputStreamReader(file.openInputStream(), StandardCharsets.UTF_8));
+      try (final var file =
+              filer
+                  .getResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract)
+                  .openInputStream();
+          final var buffer =
+              new BufferedReader(new InputStreamReader(file, StandardCharsets.UTF_8)); ) {
+
         String line;
         while ((line = buffer.readLine()) != null) {
           e.getValue().add(line);
         }
-        buffer.close();
       } catch (final FileNotFoundException | java.nio.file.NoSuchFileException x) {
         // missing and thus not created yet
       } catch (final IOException x) {
