@@ -329,7 +329,7 @@ public class ServiceProcessor extends AbstractProcessor {
   private void logModuleError(Map<String, Set<String>> missingStringsMap) {
     final Map<String, String> shortQualifiedMap =
         services.keySet().stream()
-            .collect(toMap(s -> ProcessorUtils.shortType(s.replace("$", ".")), s -> s));
+            .collect(toMap(s -> ProcessorUtils.shortType(s).replace("$", "."), s -> s));
     missingStringsMap.forEach(
         (k, v) -> {
           if (!v.isEmpty()) {
