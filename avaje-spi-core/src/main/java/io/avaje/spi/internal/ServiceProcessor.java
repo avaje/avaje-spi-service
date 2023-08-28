@@ -57,9 +57,7 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private final Map<String, Set<String>> services = new ConcurrentHashMap<>();
-  private final Map<String, Set<String>> foundServices = new HashMap<>();
 
-  Pattern regex = Pattern.compile("provides\\s+(.*?)\\s+with");
   private Elements elements;
   private Messager messager;
 
@@ -291,32 +289,11 @@ public class ServiceProcessor extends AbstractProcessor {
                   .toURL()
                   .openStream();
           var reader = new BufferedReader(new InputStreamReader(inputStream))) {
-        String line;
-        String service = null;
-        boolean inProvides = false;
-        while ((line = reader.readLine()) != null) {
-
-          if (line.contains("provides")) {
-            inProvides = true;
-            var matcher = regex.matcher(line);
-            if (matcher.find()) {
-
-              service = ProcessorUtils.shortType(matcher.group(1)).replace("$", ".");
-            }
-          }
-
-          if (!inProvides || line.isBlank()) {
-            staticWarning(line);
-            continue;
-          }
-
-          processLine(line, missingStringsMap, service);
-
-          if (line.contains(";")) {
-            inProvides = false;
-          }
+        ModuleReader.read(missingStringsMap, reader);
+        if (ModuleReader.staticWarning()) {
+          logWarn(
+              moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
         }
-
         logModuleError(missingStringsMap);
 
       } catch (Exception e) {
@@ -340,35 +317,5 @@ public class ServiceProcessor extends AbstractProcessor {
                 String.join(", ", services.get(shortQualifiedMap.get(k))));
           }
         });
-  }
-
-  private void staticWarning(String line) {
-    if (line.contains("requires") && line.contains("io.avaje.spi") && !line.contains("static")) {
-      logWarn(moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
-    }
-  }
-
-  // Process a single line of input and check for missing strings
-  private void processLine(
-      String line, Map<String, Set<String>> missingStringsMap, String service) {
-    Set<String> stringSet = missingStringsMap.computeIfAbsent(service, k -> new HashSet<>());
-    Set<String> found = foundServices.computeIfAbsent(service, k -> new HashSet<>());
-    if (!found.containsAll(stringSet)) {
-      findMissingStrings(line, stringSet, found, service);
-    }
-    if (!foundServices.isEmpty()) {
-      stringSet.removeAll(found);
-    }
-  }
-
-  // Find strings from the set that are missing in the input string
-  private void findMissingStrings(
-      String input, Set<String> stringSet, Set<String> foundStrings, String key) {
-
-    for (var str : stringSet) {
-      if (input.contains(str)) {
-        foundStrings.add(str);
-      }
-    }
   }
 }
