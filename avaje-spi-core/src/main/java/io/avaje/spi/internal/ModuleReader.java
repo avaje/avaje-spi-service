@@ -12,6 +12,7 @@ public class ModuleReader {
 
   private ModuleReader() {}
 
+  /** Keeps Track of found services by SPI and implementation set */
   private static final Map<String, Set<String>> foundServices = new HashMap<>();
 
   private static Pattern regex = Pattern.compile("provides\\s+(.*?)\\s+with");
@@ -25,6 +26,7 @@ public class ModuleReader {
     boolean inProvides = false;
     while ((line = reader.readLine()) != null) {
 
+      // retrieve service from provides statement
       if (line.contains("provides")) {
         inProvides = true;
         var matcher = regex.matcher(line);
@@ -34,12 +36,10 @@ public class ModuleReader {
         }
       }
 
+      // if not part of a provides statement skip
       if (!inProvides || line.isBlank()) {
 
-        if (!staticWarning
-            && line.contains("requires")
-            && line.contains("io.avaje.spi")
-            && !line.contains("static")) {
+        if (!staticWarning && line.contains("io.avaje.spi") && !line.contains("static")) {
           staticWarning = true;
         }
 
@@ -48,26 +48,29 @@ public class ModuleReader {
 
       processLine(line, missingStringsMap, service);
 
+      //  provides statement has ended
       if (line.contains(";")) {
         inProvides = false;
       }
     }
   }
 
+  /** as service implementations are discovered, remove from missing strings map */
   private static void processLine(
       String line, Map<String, Set<String>> missingStringsMap, String service) {
     Set<String> stringSet = missingStringsMap.computeIfAbsent(service, k -> new HashSet<>());
-    Set<String> found = foundServices.computeIfAbsent(service, k -> new HashSet<>());
-    if (!found.containsAll(stringSet)) {
-      findMissingStrings(line, stringSet, found, service);
+    Set<String> foundStrings = foundServices.computeIfAbsent(service, k -> new HashSet<>());
+    if (!foundStrings.containsAll(stringSet)) {
+      findMissingStrings(line, stringSet, foundStrings);
     }
     if (!foundServices.isEmpty()) {
-      stringSet.removeAll(found);
+      stringSet.removeAll(foundStrings);
     }
   }
 
+  /** as service implementations are discovered, add to found strings set for a given service */
   private static void findMissingStrings(
-      String input, Set<String> stringSet, Set<String> foundStrings, String key) {
+      String input, Set<String> stringSet, Set<String> foundStrings) {
 
     for (var str : stringSet) {
       if (input.contains(str)) {
