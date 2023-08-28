@@ -61,7 +61,7 @@ public class ModuleReader {
     Set<String> missingServiceImpls = missingServicesMap.get(service);
     Set<String> foundServiceImpls = foundServices.computeIfAbsent(service, k -> new HashSet<>());
     if (!foundServiceImpls.containsAll(missingServiceImpls)) {
-      addFoundStrings(line, missingServiceImpls, foundServiceImpls);
+      parseServices(line, missingServiceImpls, foundServiceImpls);
     }
     missingServiceImpls.removeAll(foundServiceImpls);
   }
@@ -73,7 +73,7 @@ public class ModuleReader {
    * @param missingServiceImpls the services we're looking for
    * @param foundServiceImpls where we'll store the results if we have a match
    */
-  private static void addFoundStrings(
+  private static void parseServices(
       String input, Set<String> missingServiceImpls, Set<String> foundServiceImpls) {
 
     for (var impl : missingServiceImpls) {
