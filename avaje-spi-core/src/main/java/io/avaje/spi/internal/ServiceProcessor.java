@@ -283,9 +283,6 @@ public class ServiceProcessor extends AbstractProcessor {
                   ProcessorUtils.shortType(k).replace("$", "."),
                   v.stream().map(ProcessorUtils::shortType).collect(toSet())));
 
-      final Map<String, String> shortQualifiedMap =
-          services.keySet().stream()
-              .collect(toMap(s -> ProcessorUtils.shortType(s.replace("$", ".")), s -> s));
       try (var inputStream =
               processingEnv
                   .getFiler()
@@ -309,14 +306,7 @@ public class ServiceProcessor extends AbstractProcessor {
           }
 
           if (!inProvides || line.isBlank()) {
-            if (line.contains("requires")
-                && line.contains("io.avaje.spi")
-                && !line.contains("static")) {
-              logWarn(
-                  moduleElement,
-                  "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
-            }
-
+            staticWarning(line);
             continue;
           }
 
@@ -327,21 +317,34 @@ public class ServiceProcessor extends AbstractProcessor {
           }
         }
 
-        missingStringsMap.forEach(
-            (k, v) -> {
-              if (!v.isEmpty()) {
-                logError(
-                    moduleElement,
-                    "Missing `provides %s with %s;`",
-                    k,
-                    String.join(", ", services.get(shortQualifiedMap.get(k))));
-              }
-            });
+        logModuleError(missingStringsMap);
 
       } catch (Exception e) {
         // can't read module
         e.printStackTrace();
       }
+    }
+  }
+
+  private void logModuleError(Map<String, Set<String>> missingStringsMap) {
+    final Map<String, String> shortQualifiedMap =
+        services.keySet().stream()
+            .collect(toMap(s -> ProcessorUtils.shortType(s.replace("$", ".")), s -> s));
+    missingStringsMap.forEach(
+        (k, v) -> {
+          if (!v.isEmpty()) {
+            logError(
+                moduleElement,
+                "Missing `provides %s with %s;`",
+                k,
+                String.join(", ", services.get(shortQualifiedMap.get(k))));
+          }
+        });
+  }
+
+  private void staticWarning(String line) {
+    if (line.contains("requires") && line.contains("io.avaje.spi") && !line.contains("static")) {
+      logWarn(moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
     }
   }
 
