@@ -272,13 +272,7 @@ public class ServiceProcessor extends AbstractProcessor {
   void validateModule() {
     if (moduleElement != null && !moduleElement.isUnnamed()) {
       // Keep track of missing services and their impls
-      Map<String, Set<String>> missingServicesMap = new HashMap<>();
-      services.forEach(
-          (k, v) ->
-              missingServicesMap.put(
-                  ProcessorUtils.shortType(k).replace("$", "."),
-                  v.stream().map(ProcessorUtils::shortType).collect(toSet())));
-
+      var moduleReader = new ModuleReader(services);
       try (var inputStream =
               processingEnv
                   .getFiler()
@@ -287,12 +281,12 @@ public class ServiceProcessor extends AbstractProcessor {
                   .toURL()
                   .openStream();
           var reader = new BufferedReader(new InputStreamReader(inputStream))) {
-        ModuleReader.read(missingServicesMap, reader);
-        if (ModuleReader.staticWarning()) {
+        moduleReader.read(reader);
+        if (moduleReader.staticWarning()) {
           logWarn(
               moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
         }
-        logModuleError(missingServicesMap);
+        logModuleError(moduleReader);
 
       } catch (Exception e) {
         // can't read module
@@ -301,11 +295,10 @@ public class ServiceProcessor extends AbstractProcessor {
     }
   }
 
-  private void logModuleError(Map<String, Set<String>> missingStringsMap) {
-    final Map<String, String> shortQualifiedMap =
-        services.keySet().stream()
-            .collect(toMap(s -> ProcessorUtils.shortType(s).replace("$", "."), s -> s));
-    missingStringsMap.forEach(
+  private void logModuleError(ModuleReader moduleReader) {
+    final Map<String, String> shortQualifiedMap = servicesShortMap();
+
+    moduleReader.missing().forEach(
         (k, v) -> {
           if (!v.isEmpty()) {
             logError(
@@ -315,5 +308,10 @@ public class ServiceProcessor extends AbstractProcessor {
                 String.join(", ", services.get(shortQualifiedMap.get(k))));
           }
         });
+  }
+
+  private Map<String, String> servicesShortMap() {
+    return services.keySet().stream()
+        .collect(toMap(s -> ProcessorUtils.shortType(s).replace("$", "."), s -> s));
   }
 }

@@ -8,58 +8,68 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-public class ModuleReader {
+import static java.util.stream.Collectors.toSet;
 
-  private ModuleReader() {}
+public final class ModuleReader {
+
+  private static final Pattern regex = Pattern.compile("provides\\s+(.*?)\\s+with");
 
   /** Keeps Track of found services by SPI and implementation set */
-  private static final Map<String, Set<String>> foundServices = new HashMap<>();
+  private final Map<String, Set<String>> foundServices = new HashMap<>();
 
-  private static Pattern regex = Pattern.compile("provides\\s+(.*?)\\s+with");
+  private final Map<String, Set<String>> missingServicesMap = new HashMap<>();
 
-  private static boolean staticWarning;
+  private boolean staticWarning;
+  private boolean inProvides = false;
 
-  public static void read(Map<String, Set<String>> missingServicesMap, BufferedReader reader)
-      throws IOException {
+  public ModuleReader(Map<String, Set<String>> services) {
+    services.forEach(this::add);
+  }
+
+  private void add(String k, Set<String> v) {
+    missingServicesMap.put(
+            ProcessorUtils.shortType(k).replace("$", "."),
+            v.stream().map(ProcessorUtils::shortType).collect(toSet()));
+  }
+
+  public void read(BufferedReader reader) throws IOException {
     String line;
-    String service = null;
-    boolean inProvides = false;
     while ((line = reader.readLine()) != null) {
-
       // retrieve service from provides statement
-      if (line.contains("provides")) {
-        inProvides = true;
-        var matcher = regex.matcher(line);
-        if (matcher.find()) {
+      readLine(line);
+    }
+  }
 
-          service = ProcessorUtils.shortType(matcher.group(1)).replace("$", ".");
-        }
+  void readLine(String line) {
+    String service = null;
+    if (line.contains("provides")) {
+      inProvides = true;
+      var matcher = regex.matcher(line);
+      if (matcher.find()) {
+        service = ProcessorUtils.shortType(matcher.group(1)).replace("$", ".");
       }
+    }
 
-      // if not part of a provides statement skip
-      if (!inProvides || line.isBlank()) {
-
-        if (!staticWarning && line.contains("io.avaje.spi") && !line.contains("static")) {
-          staticWarning = true;
-        }
-
-        continue;
+    // if not part of a provides statement skip
+    if (!inProvides || line.isBlank()) {
+      if (!staticWarning && line.contains("io.avaje.spi") && !line.contains("static")) {
+        staticWarning = true;
       }
+      return;
+    }
 
-      processLine(line, missingServicesMap, service);
+    processLine(line, service);
 
-      //  provides statement has ended
-      if (line.contains(";")) {
-        inProvides = false;
-      }
+    //  provides statement has ended
+    if (line.contains(";")) {
+      inProvides = false;
     }
   }
 
   /** as service implementations are discovered, remove from missing strings map */
-  private static void processLine(
-      String line, Map<String, Set<String>> missingServicesMap, String service) {
-    Set<String> missingServiceImpls = missingServicesMap.get(service);
-    Set<String> foundServiceImpls = foundServices.computeIfAbsent(service, k -> new HashSet<>());
+  private void processLine(String line, String service) {
+    final Set<String> missingServiceImpls = missingServicesMap.get(service);
+    final Set<String> foundServiceImpls = foundServices.computeIfAbsent(service, k -> new HashSet<>());
     if (!foundServiceImpls.containsAll(missingServiceImpls)) {
       parseServices(line, missingServiceImpls, foundServiceImpls);
     }
@@ -83,7 +93,12 @@ public class ModuleReader {
     }
   }
 
-  public static boolean staticWarning() {
+  public boolean staticWarning() {
     return staticWarning;
   }
+
+  public Map<String, Set<String>> missing() {
+    return missingServicesMap;
+  }
+
 }
