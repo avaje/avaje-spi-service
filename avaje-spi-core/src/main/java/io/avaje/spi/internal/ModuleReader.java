@@ -68,7 +68,13 @@ public class ModuleReader {
     }
   }
 
-  /** as service implementations are discovered, add to found strings set for a given service */
+  /**
+   * as service implementations are discovered, add to found strings set for a given service
+   *
+   * @param input the line to check
+   * @param stringSet the services we're looking for
+   * @param foundStrings where we'll store the results if we have a match
+   */
   private static void addFoundStrings(
       String input, Set<String> stringSet, Set<String> foundStrings) {
 
