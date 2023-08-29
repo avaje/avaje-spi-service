@@ -283,8 +283,11 @@ public class ServiceProcessor extends AbstractProcessor {
           var reader = new BufferedReader(new InputStreamReader(inputStream))) {
         moduleReader.read(reader);
         if (moduleReader.staticWarning()) {
-          logWarn(
-              moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
+            logWarn(
+                moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
+        }
+        if (moduleReader.coreWarning()) {
+          logWarn(moduleElement, "io.avaje.spi.core should not be used directly");
         }
         logModuleError(moduleReader);
 

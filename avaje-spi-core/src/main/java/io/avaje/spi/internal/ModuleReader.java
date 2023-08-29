@@ -22,14 +22,16 @@ public final class ModuleReader {
   private boolean staticWarning;
   private boolean inProvides = false;
 
+  private static boolean coreWarning;
+
   public ModuleReader(Map<String, Set<String>> services) {
     services.forEach(this::add);
   }
 
   private void add(String k, Set<String> v) {
     missingServicesMap.put(
-            ProcessorUtils.shortType(k).replace("$", "."),
-            v.stream().map(ProcessorUtils::shortType).collect(toSet()));
+        ProcessorUtils.shortType(k).replace("$", "."),
+        v.stream().map(ProcessorUtils::shortType).collect(toSet()));
   }
 
   public void read(BufferedReader reader) throws IOException {
@@ -55,6 +57,9 @@ public final class ModuleReader {
       if (!staticWarning && line.contains("io.avaje.spi") && !line.contains("static")) {
         staticWarning = true;
       }
+      if (line.contains("io.avaje.spi.core")) {
+        coreWarning = true;
+      }
       return;
     }
 
@@ -69,7 +74,8 @@ public final class ModuleReader {
   /** as service implementations are discovered, remove from missing strings map */
   private void processLine(String line, String service) {
     final Set<String> missingServiceImpls = missingServicesMap.get(service);
-    final Set<String> foundServiceImpls = foundServices.computeIfAbsent(service, k -> new HashSet<>());
+    final Set<String> foundServiceImpls =
+        foundServices.computeIfAbsent(service, k -> new HashSet<>());
     if (!foundServiceImpls.containsAll(missingServiceImpls)) {
       parseServices(line, missingServiceImpls, foundServiceImpls);
     }
@@ -97,8 +103,11 @@ public final class ModuleReader {
     return staticWarning;
   }
 
+  public boolean coreWarning() {
+    return coreWarning;
+  }
+
   public Map<String, Set<String>> missing() {
     return missingServicesMap;
   }
-
 }
