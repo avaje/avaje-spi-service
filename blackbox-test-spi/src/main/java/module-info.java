@@ -2,7 +2,8 @@ import io.avaje.spi.test.SPIInterface;
 import io.avaje.spi.test.CommonClass2;
 
 module io.avaje.spi.blackbox {
-  requires io.avaje.spi;
+  requires static
+  io.avaje.spi;
   requires java.compiler;
   provides SPIInterface with
   		io.avaje.spi.test. CommonClass,

@@ -22,7 +22,6 @@ import java.util.stream.Stream;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
-import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -46,6 +45,7 @@ import io.avaje.prism.GenerateUtils;
 
 @GenerateUtils
 @GenerateAPContext
+@SuppressWarnings("exports")
 @GenerateModuleInfoReader
 @SupportedAnnotationTypes(ServiceProviderPrism.PRISM_TYPE)
 public class ServiceProcessor extends AbstractProcessor {
@@ -252,7 +252,7 @@ public class ServiceProcessor extends AbstractProcessor {
       try (var reader = getModuleInfoReader()) {
         moduleReader.read(reader, moduleElement);
         if (moduleReader.staticWarning()) {
-          logWarn(
+          logError(
               moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
         }
         if (moduleReader.coreWarning()) {
