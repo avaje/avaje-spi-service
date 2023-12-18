@@ -11,6 +11,7 @@ import java.util.Set;
 import javax.lang.model.element.ModuleElement;
 
 import io.avaje.prism.GenerateModuleInfoReader;
+import io.avaje.spi.internal.ModuleInfoReader.Provides;
 
 @GenerateModuleInfoReader
 public final class ModuleReader {
@@ -25,9 +26,7 @@ public final class ModuleReader {
   }
 
   private void add(String k, Set<String> v) {
-    missingServicesMap.put(
-        ProcessorUtils.shortType(k).replace("$", "."),
-        v.stream().map(ProcessorUtils::shortType).collect(toSet()));
+    missingServicesMap.put(k.replace("$", "."), v);
   }
 
   public void read(BufferedReader reader, ModuleElement element) throws IOException {
@@ -48,7 +47,8 @@ public final class ModuleReader {
     }
 
     module.provides().stream()
-        .forEach(p -> missingServicesMap.get(p.service()).removeAll(p.implementations()));
+        .filter(p -> missingServicesMap.containsKey(p.service()))
+        .forEach(p -> p.implementations().forEach(missingServicesMap.get(p.service())::remove));
   }
 
   public boolean staticWarning() {

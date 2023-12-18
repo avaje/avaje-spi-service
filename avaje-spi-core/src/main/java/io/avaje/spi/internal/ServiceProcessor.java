@@ -268,22 +268,20 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private void logModuleError(ModuleReader moduleReader) {
-    final Map<String, String> shortQualifiedMap = servicesShortMap();
+    final Map<String, String> shortQualifiedMap =
+        services.keySet().stream().collect(toMap(s -> s.replace("$", "."), s -> s));
 
-    moduleReader.missing().forEach(
-        (k, v) -> {
-          if (!v.isEmpty()) {
-            logError(
-                moduleElement,
-                "Missing `provides %s with %s;`",
-                k,
-                String.join(", ", services.get(shortQualifiedMap.get(k))));
-          }
-        });
-  }
-
-  private Map<String, String> servicesShortMap() {
-    return services.keySet().stream()
-        .collect(toMap(s -> ProcessorUtils.shortType(s).replace("$", "."), s -> s));
+    moduleReader
+        .missing()
+        .forEach(
+            (k, v) -> {
+              if (!v.isEmpty()) {
+                logError(
+                    moduleElement,
+                    "Missing `provides %s with %s;`",
+                    k,
+                    String.join(", ", services.get(shortQualifiedMap.get(k))));
+              }
+            });
   }
 }
