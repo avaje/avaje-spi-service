@@ -1,28 +1,24 @@
 package io.avaje.spi.internal;
 
+import static java.util.stream.Collectors.toSet;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
-import static java.util.stream.Collectors.toSet;
+import javax.lang.model.element.ModuleElement;
 
+import io.avaje.prism.GenerateModuleInfoReader;
+
+@GenerateModuleInfoReader
 public final class ModuleReader {
-
-  private static final Pattern regex = Pattern.compile("provides\\s+(.*?)\\s+with");
-
-  /** Keeps Track of found services by SPI and implementation set */
-  private final Map<String, Set<String>> foundServices = new HashMap<>();
-
   private final Map<String, Set<String>> missingServicesMap = new HashMap<>();
 
   private boolean staticWarning;
-  private boolean inProvides = false;
 
-  private static boolean coreWarning;
+  private boolean coreWarning;
 
   public ModuleReader(Map<String, Set<String>> services) {
     services.forEach(this::add);
@@ -34,69 +30,25 @@ public final class ModuleReader {
         v.stream().map(ProcessorUtils::shortType).collect(toSet()));
   }
 
-  public void read(BufferedReader reader) throws IOException {
-    String line;
-    while ((line = reader.readLine()) != null) {
-      // retrieve service from provides statement
-      readLine(line);
-    }
-  }
+  public void read(BufferedReader reader, ModuleElement element) throws IOException {
 
-  void readLine(String line) {
-    String service = null;
-    if (line.contains("provides")) {
-      inProvides = true;
-      var matcher = regex.matcher(line);
-      if (matcher.find()) {
-        service = ProcessorUtils.shortType(matcher.group(1)).replace("$", ".");
-      }
-    }
+    var module = new ModuleInfoReader(element, reader);
 
-    // if not part of a provides statement skip
-    if (!inProvides || line.isBlank()) {
-      if (!staticWarning && line.contains("io.avaje.spi") && !line.contains("static")) {
+    for (var require : module.requires()) {
+      var dep = require.getDependency();
+      if (!require.isStatic() && dep.getQualifiedName().contentEquals("io.avaje.spi")) {
         staticWarning = true;
       }
-      if (line.contains("io.avaje.spi.core")) {
+      if (dep.getQualifiedName().contentEquals("io.avaje.spi.core")) {
         coreWarning = true;
       }
-      return;
-    }
-
-    processLine(line, service);
-
-    //  provides statement has ended
-    if (line.contains(";")) {
-      inProvides = false;
-    }
-  }
-
-  /** as service implementations are discovered, remove from missing strings map */
-  private void processLine(String line, String service) {
-    final Set<String> missingServiceImpls = missingServicesMap.get(service);
-    final Set<String> foundServiceImpls =
-        foundServices.computeIfAbsent(service, k -> new HashSet<>());
-    if (!foundServiceImpls.containsAll(missingServiceImpls)) {
-      parseServices(line, missingServiceImpls, foundServiceImpls);
-    }
-    missingServiceImpls.removeAll(foundServiceImpls);
-  }
-
-  /**
-   * as service implementations are discovered, add to found strings set for a given service
-   *
-   * @param input the line to check
-   * @param missingServiceImpls the services we're looking for
-   * @param foundServiceImpls where we'll store the results if we have a match
-   */
-  private static void parseServices(
-      String input, Set<String> missingServiceImpls, Set<String> foundServiceImpls) {
-
-    for (var impl : missingServiceImpls) {
-      if (input.contains(impl)) {
-        foundServiceImpls.add(impl);
+      if (staticWarning && coreWarning) {
+        break;
       }
     }
+
+    module.provides().stream()
+        .forEach(p -> missingServicesMap.get(p.service()).removeAll(p.implementations()));
   }
 
   public boolean staticWarning() {
