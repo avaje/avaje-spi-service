@@ -1,7 +1,7 @@
 package io.avaje.spi.internal;
 
+import static io.avaje.spi.internal.APContext.*;
 import static java.util.stream.Collectors.toMap;
-import static java.util.stream.Collectors.toSet;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -12,7 +12,6 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,7 +22,6 @@ import java.util.stream.Stream;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
-import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -39,13 +37,16 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
-import javax.tools.Diagnostic;
-import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 
+import io.avaje.prism.GenerateAPContext;
+import io.avaje.prism.GenerateModuleInfoReader;
 import io.avaje.prism.GenerateUtils;
 
 @GenerateUtils
+@GenerateAPContext
+@SuppressWarnings("exports")
+@GenerateModuleInfoReader
 @SupportedAnnotationTypes(ServiceProviderPrism.PRISM_TYPE)
 public class ServiceProcessor extends AbstractProcessor {
 
@@ -57,7 +58,6 @@ public class ServiceProcessor extends AbstractProcessor {
   private final Map<String, Set<String>> services = new ConcurrentHashMap<>();
 
   private Elements elements;
-  private Messager messager;
 
   private Types types;
 
@@ -67,14 +67,14 @@ public class ServiceProcessor extends AbstractProcessor {
   public synchronized void init(ProcessingEnvironment env) {
     super.init(env);
     this.elements = env.getElementUtils();
-    this.messager = env.getMessager();
     this.types = env.getTypeUtils();
+    APContext.init(env);
   }
 
   @Override
   public boolean process(Set<? extends TypeElement> tes, RoundEnvironment roundEnv) {
     final var annotated =
-        roundEnv.getElementsAnnotatedWith(element(ServiceProviderPrism.PRISM_TYPE));
+        roundEnv.getElementsAnnotatedWith(typeElement(ServiceProviderPrism.PRISM_TYPE));
 
     // discover services from the current compilation sources
     for (final var type : ElementFilter.typesIn(annotated)) {
@@ -149,7 +149,7 @@ public class ServiceProcessor extends AbstractProcessor {
     for (final Map.Entry<String, Set<String>> e : services.entrySet()) {
 
       final String contract = e.getKey();
-      logDebug("Writing META-INF/services/%s", contract);
+      logNote("Writing META-INF/services/%s", contract);
       try (final var file =
               processingEnv
                   .getFiler()
@@ -182,9 +182,9 @@ public class ServiceProcessor extends AbstractProcessor {
       // Kohsuke-Metainf
       if (hasBaseClass ^ hasInterfaces) {
         if (hasBaseClass) {
-          typeElementList.add(asElement(type.getSuperclass()));
+          typeElementList.add(asTypeElement(type.getSuperclass()));
         } else {
-          typeElementList.add(asElement(type.getInterfaces().get(0)));
+          typeElementList.add(asTypeElement(type.getInterfaces().get(0)));
         }
       } else {
         logError(type, "SPI type was not specified, and could not be inferred.");
@@ -196,7 +196,7 @@ public class ServiceProcessor extends AbstractProcessor {
       if (!hasInterfaces && !hasBaseClass || !isAssignable2Interface(type, spiMirror)) {
         logError(type, "Service Provider does not extend %s", spiMirror);
       } else if (spiMirror instanceof DeclaredType) {
-        typeElementList.add(asElement(spiMirror));
+        typeElementList.add(asTypeElement(spiMirror));
       } else {
         logError(type, "Invalid type specified as the Service Provider Interface");
       }
@@ -206,33 +206,9 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private boolean isObject(TypeMirror t) {
     if (t instanceof DeclaredType) {
-      return "java.lang.Object".equals(asElement(t).getQualifiedName().toString());
+      return "java.lang.Object".equals(asTypeElement(t).getQualifiedName().toString());
     }
     return false;
-  }
-
-  private TypeElement element(String rawType) {
-    return elements.getTypeElement(rawType);
-  }
-
-  private TypeElement asElement(TypeMirror returnType) {
-    return (TypeElement) types.asElement(returnType);
-  }
-  /** Log an error message. */
-  private void logError(Element e, String msg, Object... args) {
-    messager.printMessage(Diagnostic.Kind.ERROR, String.format(msg, args), e);
-  }
-
-  private void logError(String msg, Object... args) {
-    messager.printMessage(Diagnostic.Kind.ERROR, String.format(msg, args));
-  }
-
-  private void logWarn(Element e, String msg, Object... args) {
-    messager.printMessage(Diagnostic.Kind.WARNING, String.format(msg, args), e);
-  }
-
-  private void logDebug(String msg, Object... args) {
-    messager.printMessage(Diagnostic.Kind.NOTE, String.format(msg, args));
   }
 
   private boolean isAssignable2Interface(Element type, TypeMirror superType) {
@@ -273,18 +249,11 @@ public class ServiceProcessor extends AbstractProcessor {
     if (moduleElement != null && !moduleElement.isUnnamed()) {
       // Keep track of missing services and their impls
       var moduleReader = new ModuleReader(services);
-      try (var inputStream =
-              processingEnv
-                  .getFiler()
-                  .getResource(StandardLocation.SOURCE_PATH, "", "module-info.java")
-                  .toUri()
-                  .toURL()
-                  .openStream();
-          var reader = new BufferedReader(new InputStreamReader(inputStream))) {
-        moduleReader.read(reader);
+      try (var reader = getModuleInfoReader()) {
+        moduleReader.read(reader, moduleElement);
         if (moduleReader.staticWarning()) {
-            logWarn(
-                moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
+          logError(
+              moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
         }
         if (moduleReader.coreWarning()) {
           logWarn(moduleElement, "io.avaje.spi.core should not be used directly");
@@ -299,22 +268,20 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private void logModuleError(ModuleReader moduleReader) {
-    final Map<String, String> shortQualifiedMap = servicesShortMap();
+    final Map<String, String> shortQualifiedMap =
+        services.keySet().stream().collect(toMap(s -> s.replace("$", "."), s -> s));
 
-    moduleReader.missing().forEach(
-        (k, v) -> {
-          if (!v.isEmpty()) {
-            logError(
-                moduleElement,
-                "Missing `provides %s with %s;`",
-                k,
-                String.join(", ", services.get(shortQualifiedMap.get(k))));
-          }
-        });
-  }
-
-  private Map<String, String> servicesShortMap() {
-    return services.keySet().stream()
-        .collect(toMap(s -> ProcessorUtils.shortType(s).replace("$", "."), s -> s));
+    moduleReader
+        .missing()
+        .forEach(
+            (k, v) -> {
+              if (!v.isEmpty()) {
+                logError(
+                    moduleElement,
+                    "Missing `provides %s with %s;`",
+                    k,
+                    String.join(", ", services.get(shortQualifiedMap.get(k))));
+              }
+            });
   }
 }
