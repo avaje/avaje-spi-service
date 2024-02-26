@@ -9,15 +9,18 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -63,12 +66,32 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private ModuleElement moduleElement;
 
+  private boolean moduleValidation;
+
   @Override
   public synchronized void init(ProcessingEnvironment env) {
     super.init(env);
     this.elements = env.getElementUtils();
     this.types = env.getTypeUtils();
     APContext.init(env);
+    this.moduleValidation = lines("target/avaje-plugin-exists.txt", "/target/classes").isEmpty();
+  }
+
+  private List<String> lines(String relativeName, String replace) {
+    try {
+      final String resource =
+    		  processingEnv.getFiler()
+              .getResource(StandardLocation.CLASS_OUTPUT, "", relativeName)
+              .toUri()
+              .toString()
+              .replace(replace, "");
+      try (var inputStream = new URI(resource).toURL().openStream();
+           var reader = new BufferedReader(new InputStreamReader(inputStream))) {
+        return reader.lines().collect(Collectors.toList());
+      }
+    } catch (final Exception e) {
+      return Collections.emptyList();
+    }
   }
 
   @Override
@@ -246,7 +269,7 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   void validateModule() {
-    if (moduleElement != null && !moduleElement.isUnnamed()) {
+    if (moduleValidation && moduleElement != null && !moduleElement.isUnnamed()) {
       // Keep track of missing services and their impls
       var moduleReader = new ModuleReader(services);
       try (var reader = getModuleInfoReader()) {
