@@ -269,7 +269,7 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   void validateModule() {
-    if (moduleValidation && moduleElement != null && !moduleElement.isUnnamed()) {
+    if (moduleElement != null && !moduleElement.isUnnamed()) {
       // Keep track of missing services and their impls
       var moduleReader = new ModuleReader(services);
       try (var reader = getModuleInfoReader()) {
@@ -281,7 +281,9 @@ public class ServiceProcessor extends AbstractProcessor {
         if (moduleReader.coreWarning()) {
           logWarn(moduleElement, "io.avaje.spi.core should not be used directly");
         }
-        logModuleError(moduleReader);
+        if (moduleValidation) {
+          logModuleError(moduleReader);
+        }
 
       } catch (Exception e) {
         // can't read module
