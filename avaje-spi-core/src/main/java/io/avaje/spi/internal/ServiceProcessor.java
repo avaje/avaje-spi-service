@@ -10,17 +10,16 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -66,32 +65,12 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private ModuleElement moduleElement;
 
-  private boolean moduleValidation;
-
   @Override
   public synchronized void init(ProcessingEnvironment env) {
     super.init(env);
     this.elements = env.getElementUtils();
     this.types = env.getTypeUtils();
     APContext.init(env);
-    this.moduleValidation = lines("target/avaje-plugin-exists.txt", "/target/classes").isEmpty();
-  }
-
-  private List<String> lines(String relativeName, String replace) {
-    try {
-      final String resource =
-    		  processingEnv.getFiler()
-              .getResource(StandardLocation.CLASS_OUTPUT, "", relativeName)
-              .toUri()
-              .toString()
-              .replace(replace, "");
-      try (var inputStream = new URI(resource).toURL().openStream();
-           var reader = new BufferedReader(new InputStreamReader(inputStream))) {
-        return reader.lines().collect(Collectors.toList());
-      }
-    } catch (final Exception e) {
-      return Collections.emptyList();
-    }
   }
 
   @Override
@@ -281,7 +260,7 @@ public class ServiceProcessor extends AbstractProcessor {
         if (moduleReader.coreWarning()) {
           logWarn(moduleElement, "io.avaje.spi.core should not be used directly");
         }
-        if (moduleValidation) {
+        if (!buildPluginAvailable()) {
           logModuleError(moduleReader);
         }
 
@@ -308,5 +287,28 @@ public class ServiceProcessor extends AbstractProcessor {
                     String.join(", ", services.get(shortQualifiedMap.get(k))));
               }
             });
+  }
+
+  private static boolean buildPluginAvailable() {
+
+    return resource("target/avaje-plugin-exists.txt", "/target/classes")
+        || resource("build/avaje-plugin-exists.txt", "/build/classes/java/main");
+  }
+
+  private static boolean resource(String relativeName, String replace) {
+    try (var inputStream =
+        new URI(
+                filer()
+                    .getResource(StandardLocation.CLASS_OUTPUT, "", relativeName)
+                    .toUri()
+                    .toString()
+                    .replace(replace, ""))
+            .toURL()
+            .openStream()) {
+
+      return inputStream.available() > 0;
+    } catch (IOException | URISyntaxException e) {
+      return false;
+    }
   }
 }
