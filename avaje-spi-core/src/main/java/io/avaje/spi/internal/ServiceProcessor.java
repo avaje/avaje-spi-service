@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -258,7 +260,9 @@ public class ServiceProcessor extends AbstractProcessor {
         if (moduleReader.coreWarning()) {
           logWarn(moduleElement, "io.avaje.spi.core should not be used directly");
         }
-        logModuleError(moduleReader);
+        if (!buildPluginAvailable()) {
+          logModuleError(moduleReader);
+        }
 
       } catch (Exception e) {
         // can't read module
@@ -283,5 +287,28 @@ public class ServiceProcessor extends AbstractProcessor {
                     String.join(", ", services.get(shortQualifiedMap.get(k))));
               }
             });
+  }
+
+  private static boolean buildPluginAvailable() {
+
+    return resource("target/avaje-plugin-exists.txt", "/target/classes")
+        || resource("build/avaje-plugin-exists.txt", "/build/classes/java/main");
+  }
+
+  private static boolean resource(String relativeName, String replace) {
+    try (var inputStream =
+        new URI(
+                filer()
+                    .getResource(StandardLocation.CLASS_OUTPUT, "", relativeName)
+                    .toUri()
+                    .toString()
+                    .replace(replace, ""))
+            .toURL()
+            .openStream()) {
+
+      return inputStream.available() > 0;
+    } catch (IOException | URISyntaxException e) {
+      return false;
+    }
   }
 }
