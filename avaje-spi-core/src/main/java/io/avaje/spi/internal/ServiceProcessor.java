@@ -180,6 +180,9 @@ public class ServiceProcessor extends AbstractProcessor {
     final boolean hasInterfaces = !interfaces.isEmpty();
 
     if (spis.isEmpty()) {
+      if (checkSPI(type.asType(), typeElementList)) {
+        return typeElementList;
+      }
       // This inferring of the service was inspired by Pistachio, which was in turn inspired by
       // Kohsuke-Metainf
       if (hasBaseClass ^ hasInterfaces) {
@@ -204,6 +207,29 @@ public class ServiceProcessor extends AbstractProcessor {
       }
     }
     return typeElementList;
+  }
+
+  // if a @Service Annotation is present on a superclass/interface, use that as the inferred service type
+  private boolean checkSPI(TypeMirror typeMirror, final List<TypeElement> typeElementList) {
+    var type = asTypeElement(typeMirror);
+    if (type == null) {
+      return false;
+    }
+    if (ServicePrism.isPresent(type)) {
+      typeElementList.add(type);
+      return true;
+    }
+    final List<TypeMirror> supers = new ArrayList<>();
+
+    supers.add(type.getSuperclass());
+    supers.addAll(type.getInterfaces());
+
+    for (var s : supers) {
+      if (checkSPI(s, typeElementList)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean isObject(TypeMirror t) {

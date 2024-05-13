@@ -1,7 +1,5 @@
 package io.avaje.spi.internal;
 
-import static java.util.stream.Collectors.toSet;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.HashMap;
@@ -11,10 +9,9 @@ import java.util.Set;
 import javax.lang.model.element.ModuleElement;
 
 import io.avaje.prism.GenerateModuleInfoReader;
-import io.avaje.spi.internal.ModuleInfoReader.Provides;
 
 @GenerateModuleInfoReader
-public final class ModuleReader {
+final class ModuleReader {
   private final Map<String, Set<String>> missingServicesMap = new HashMap<>();
 
   private boolean staticWarning;
@@ -48,7 +45,18 @@ public final class ModuleReader {
 
     module.provides().stream()
         .filter(p -> missingServicesMap.containsKey(p.service()))
-        .forEach(p -> p.implementations().forEach(missingServicesMap.get(p.service())::remove));
+        .forEach(
+            p -> {
+              var impls = p.implementations();
+              var missing = missingServicesMap.get(p.service());
+
+              if (missing.size() != impls.size()) {
+
+                return;
+              }
+
+              impls.forEach(missing::remove);
+            });
   }
 
   public boolean staticWarning() {

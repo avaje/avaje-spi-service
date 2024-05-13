@@ -1,16 +1,17 @@
 package io.avaje.spi.internal;
 
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Map;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.type.TypeMirror;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 
 /** A Prism representing a {@link io.avaje.spi.ServiceProvider @ServiceProvider} annotation. */
