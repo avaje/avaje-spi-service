@@ -80,7 +80,6 @@ public class ServiceProcessor extends AbstractProcessor {
 
     // discover services from the current compilation sources
     for (final var type : ElementFilter.typesIn(annotated)) {
-
       validate(type);
 
       final List<TypeElement> contracts = getServiceInterfaces(type);
@@ -149,7 +148,6 @@ public class ServiceProcessor extends AbstractProcessor {
 
     // Write the service files
     for (final Map.Entry<String, Set<String>> e : services.entrySet()) {
-
       final String contract = e.getKey();
       logNote("Writing META-INF/services/%s", contract);
       try (final var file =
@@ -180,6 +178,9 @@ public class ServiceProcessor extends AbstractProcessor {
     final boolean hasInterfaces = !interfaces.isEmpty();
 
     if (spis.isEmpty()) {
+      if (checkSPI(type.asType(), typeElementList)) {
+        return typeElementList;
+      }
       // This inferring of the service was inspired by Pistachio, which was in turn inspired by
       // Kohsuke-Metainf
       if (hasBaseClass ^ hasInterfaces) {
@@ -204,6 +205,27 @@ public class ServiceProcessor extends AbstractProcessor {
       }
     }
     return typeElementList;
+  }
+
+  // if a @Service Annotation is present on a superclass/interface, use that as the inferred service type
+  private boolean checkSPI(TypeMirror typeMirror, final List<TypeElement> typeElementList) {
+    var type = asTypeElement(typeMirror);
+    if (type == null) {
+      return false;
+    }
+    if (ServicePrism.isPresent(type)) {
+      typeElementList.add(type);
+      return true;
+    }
+    final List<TypeMirror> supers = new ArrayList<>();
+    supers.add(type.getSuperclass());
+    supers.addAll(type.getInterfaces());
+    for (var aSuper : supers) {
+      if (checkSPI(aSuper, typeElementList)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean isObject(TypeMirror t) {
@@ -290,7 +312,6 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private static boolean buildPluginAvailable() {
-
     return resource("target/avaje-plugin-exists.txt", "/target/classes")
         || resource("build/avaje-plugin-exists.txt", "/build/classes/java/main");
   }
