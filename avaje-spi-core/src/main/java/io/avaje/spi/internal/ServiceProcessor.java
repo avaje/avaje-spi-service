@@ -80,7 +80,6 @@ public class ServiceProcessor extends AbstractProcessor {
 
     // discover services from the current compilation sources
     for (final var type : ElementFilter.typesIn(annotated)) {
-
       validate(type);
 
       final List<TypeElement> contracts = getServiceInterfaces(type);
@@ -149,7 +148,6 @@ public class ServiceProcessor extends AbstractProcessor {
 
     // Write the service files
     for (final Map.Entry<String, Set<String>> e : services.entrySet()) {
-
       final String contract = e.getKey();
       logNote("Writing META-INF/services/%s", contract);
       try (final var file =
@@ -220,12 +218,10 @@ public class ServiceProcessor extends AbstractProcessor {
       return true;
     }
     final List<TypeMirror> supers = new ArrayList<>();
-
     supers.add(type.getSuperclass());
     supers.addAll(type.getInterfaces());
-
-    for (var s : supers) {
-      if (checkSPI(s, typeElementList)) {
+    for (var aSuper : supers) {
+      if (checkSPI(aSuper, typeElementList)) {
         return true;
       }
     }
@@ -316,7 +312,6 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private static boolean buildPluginAvailable() {
-
     return resource("target/avaje-plugin-exists.txt", "/target/classes")
         || resource("build/avaje-plugin-exists.txt", "/build/classes/java/main");
   }

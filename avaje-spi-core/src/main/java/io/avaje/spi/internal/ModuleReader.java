@@ -18,7 +18,7 @@ final class ModuleReader {
 
   private boolean coreWarning;
 
-  public ModuleReader(Map<String, Set<String>> services) {
+  ModuleReader(Map<String, Set<String>> services) {
     services.forEach(this::add);
   }
 
@@ -26,10 +26,8 @@ final class ModuleReader {
     missingServicesMap.put(k.replace("$", "."), v);
   }
 
-  public void read(BufferedReader reader, ModuleElement element) throws IOException {
-
+  void read(BufferedReader reader, ModuleElement element) throws IOException {
     var module = new ModuleInfoReader(element, reader);
-
     for (var require : module.requires()) {
       var dep = require.getDependency();
       if (!require.isStatic() && dep.getQualifiedName().contentEquals("io.avaje.spi")) {
@@ -49,25 +47,22 @@ final class ModuleReader {
             p -> {
               var impls = p.implementations();
               var missing = missingServicesMap.get(p.service());
-
               if (missing.size() != impls.size()) {
-
                 return;
               }
-
               impls.forEach(missing::remove);
             });
   }
 
-  public boolean staticWarning() {
+  boolean staticWarning() {
     return staticWarning;
   }
 
-  public boolean coreWarning() {
+  boolean coreWarning() {
     return coreWarning;
   }
 
-  public Map<String, Set<String>> missing() {
+  Map<String, Set<String>> missing() {
     return missingServicesMap;
   }
 }
