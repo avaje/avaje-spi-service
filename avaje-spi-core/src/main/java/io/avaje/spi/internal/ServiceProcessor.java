@@ -12,6 +12,8 @@ import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -49,7 +51,20 @@ import io.avaje.prism.GenerateUtils;
 @GenerateAPContext
 @SuppressWarnings("exports")
 @GenerateModuleInfoReader
-@SupportedAnnotationTypes(ServiceProviderPrism.PRISM_TYPE)
+@SupportedAnnotationTypes({
+  ServiceProviderPrism.PRISM_TYPE,
+  // makes the processor automatically run if any of the other avaje processors are active
+  // so that automatic spi module validation happens
+  "io.avaje.inject.spi.Generated",
+  "io.avaje.jsonb.spi.Generated",
+  "io.avaje.http.api.Client",
+  "io.avaje.http.api.Controller",
+  "io.avaje.validation.spi.Generated",
+  "io.avaje.recordbuilder.Generated",
+  "javax.annotation.processing.SupportedAnnotationTypes",
+  "javax.annotation.processing.SupportedOptions",
+  "javax.annotation.processing.SupportedSourceVersion"
+})
 public class ServiceProcessor extends AbstractProcessor {
 
   @Override
@@ -65,6 +80,10 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private ModuleElement moduleElement;
 
+  private boolean writtenLocator;
+
+  private Path servicesDirectory;
+
   @Override
   public synchronized void init(ProcessingEnvironment env) {
     super.init(env);
@@ -75,6 +94,25 @@ public class ServiceProcessor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> tes, RoundEnvironment roundEnv) {
+
+    if (!writtenLocator) {
+      try {
+        this.servicesDirectory =
+            Path.of(
+                    processingEnv
+                        .getFiler()
+                        .createResource(
+                            StandardLocation.CLASS_OUTPUT,
+                            "",
+                            "META-INF/services/spi-service-locator")
+                        .toUri())
+                .getParent();
+      } catch (IOException e) {
+        // not a problem
+      }
+      writtenLocator = true;
+    }
+
     final var annotated =
         roundEnv.getElementsAnnotatedWith(typeElement(ServiceProviderPrism.PRISM_TYPE));
 
@@ -133,7 +171,7 @@ public class ServiceProcessor extends AbstractProcessor {
 
         String line;
         while ((line = buffer.readLine()) != null) {
-          e.getValue().add(line);
+          line.replaceAll("\\s","").replace(",", "\n").lines().forEach(e.getValue()::add);
         }
       } catch (final FileNotFoundException | java.nio.file.NoSuchFileException x) {
         // missing and thus not created yet
@@ -269,8 +307,32 @@ public class ServiceProcessor extends AbstractProcessor {
     return getModuleElement(e.getEnclosingElement());
   }
 
+  private void loadAllServices() {
+
+    // Read the existing service files
+    try (var servicePaths = Files.walk(servicesDirectory)) {
+      Iterable<Path> pathIterable = servicePaths::iterator;
+      for (var servicePath : pathIterable) {
+        var impls =
+            services.computeIfAbsent(servicePath.getFileName().toString(), k -> new TreeSet<>());
+        Files.readAllLines(servicePath)
+            .forEach(
+                line -> line.replaceAll("\\s","").replace(",", "\n").lines().forEach(impls::add));
+      }
+    } catch (Exception e) {
+      // not a big deal if we can't load
+    }
+  }
+
   void validateModule() {
     if (moduleElement != null && !moduleElement.isUnnamed()) {
+      final var buildPluginUnavailable = !buildPluginAvailable();
+
+      //validate even classes not annotated with @ServiceProvider
+      if (buildPluginUnavailable) {
+        loadAllServices();
+      }
+
       // Keep track of missing services and their impls
       var moduleReader = new ModuleReader(services);
       try (var reader = getModuleInfoReader()) {
@@ -282,7 +344,7 @@ public class ServiceProcessor extends AbstractProcessor {
         if (moduleReader.coreWarning()) {
           logWarn(moduleElement, "io.avaje.spi.core should not be used directly");
         }
-        if (!buildPluginAvailable()) {
+        if (buildPluginUnavailable) {
           logModuleError(moduleReader);
         }
 
