@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.Filer;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -59,8 +58,9 @@ import io.avaje.prism.GenerateUtils;
   "io.avaje.jsonb.spi.Generated",
   "io.avaje.http.api.Client",
   "io.avaje.http.api.Controller",
-  "io.avaje.validation.spi.Generated",
   "io.avaje.recordbuilder.Generated",
+  "io.avaje.prism.GenerateAPContext",
+  "javax.annotation.processing.Generated",
   "javax.annotation.processing.SupportedAnnotationTypes",
   "javax.annotation.processing.SupportedOptions",
   "javax.annotation.processing.SupportedSourceVersion"
@@ -69,6 +69,7 @@ public class ServiceProcessor extends AbstractProcessor {
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
+
     return SourceVersion.latestSupported();
   }
 
@@ -108,7 +109,7 @@ public class ServiceProcessor extends AbstractProcessor {
                         .toUri())
                 .getParent();
       } catch (IOException e) {
-        // not a problem
+        logError("Failed to write service locator file");
       }
       writtenLocator = true;
     }
@@ -159,34 +160,14 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private void write() {
     // Read the existing service files
-    final Filer filer = processingEnv.getFiler();
-    for (final var e : services.entrySet()) {
-      final String contract = e.getKey();
-      try (final var file =
-              filer
-                  .getResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract)
-                  .openInputStream();
-          final var buffer =
-              new BufferedReader(new InputStreamReader(file, StandardCharsets.UTF_8)); ) {
-
-        String line;
-        while ((line = buffer.readLine()) != null) {
-          line.replaceAll("\\s","").replace(",", "\n").lines().forEach(e.getValue()::add);
-        }
-      } catch (final FileNotFoundException | java.nio.file.NoSuchFileException x) {
-        // missing and thus not created yet
-      } catch (final IOException x) {
-        logError(
-            "Failed to load existing service definition file. SPI: "
-                + contract
-                + " exception: "
-                + x);
-      }
-    }
-
+    var allServices = loadMetaInfServices();
     // Write the service files
-    for (final Map.Entry<String, Set<String>> e : services.entrySet()) {
+    for (final Map.Entry<String, Set<String>> e : allServices.entrySet()) {
       final String contract = e.getKey();
+      // avoid messing with other annotation processors' service generation
+      if (!services.containsKey(contract)) {
+        continue;
+      }
       logNote("Writing META-INF/services/%s", contract);
       try (final var file =
               processingEnv
@@ -203,6 +184,42 @@ public class ServiceProcessor extends AbstractProcessor {
         logError("Failed to write service definition files: %s", x);
       }
     }
+    services.putAll(allServices);
+  }
+
+  private Map<String, Set<String>> loadMetaInfServices() {
+    var allServices = new ConcurrentHashMap<>(services);
+
+    // Read the existing service files
+    try (var servicePaths = Files.walk(servicesDirectory, 1).skip(1)) {
+      Iterable<Path> pathIterable = servicePaths::iterator;
+      for (var servicePath : pathIterable) {
+        final var contract = servicePath.getFileName().toString();
+        if (APContext.typeElement(contract.replace("$", ".")) == null) {
+          continue;
+        }
+        var impls = allServices.computeIfAbsent(contract, k -> new TreeSet<>());
+
+        try (final var file = servicePath.toUri().toURL().openStream();
+            final var buffer = new BufferedReader(new InputStreamReader(file)); ) {
+
+          String line;
+          while ((line = buffer.readLine()) != null) {
+            line.replaceAll("\\s", "").replace(",", "\n").lines().forEach(impls::add);
+          }
+        } catch (final FileNotFoundException | java.nio.file.NoSuchFileException x) {
+          // missing and thus not created yet
+        } catch (final IOException x) {
+          logError(
+              "Failed to load existing service definition file. SPI: "
+                  + contract
+                  + " exception: "
+                  + x);
+        }
+      }
+    } catch (Exception e) {
+    }
+    return allServices;
   }
 
   private List<TypeElement> getServiceInterfaces(TypeElement type) {
@@ -245,7 +262,8 @@ public class ServiceProcessor extends AbstractProcessor {
     return typeElementList;
   }
 
-  // if a @Service Annotation is present on a superclass/interface, use that as the inferred service type
+  // if a @Service Annotation is present on a superclass/interface, use that as the inferred service
+  // type
   private boolean checkSPI(TypeMirror typeMirror, final List<TypeElement> typeElementList) {
     var type = asTypeElement(typeMirror);
     if (type == null) {
@@ -307,32 +325,9 @@ public class ServiceProcessor extends AbstractProcessor {
     return getModuleElement(e.getEnclosingElement());
   }
 
-  private void loadAllServices() {
-
-    // Read the existing service files
-    try (var servicePaths = Files.walk(servicesDirectory)) {
-      Iterable<Path> pathIterable = servicePaths::iterator;
-      for (var servicePath : pathIterable) {
-        var impls =
-            services.computeIfAbsent(servicePath.getFileName().toString(), k -> new TreeSet<>());
-        Files.readAllLines(servicePath)
-            .forEach(
-                line -> line.replaceAll("\\s","").replace(",", "\n").lines().forEach(impls::add));
-      }
-    } catch (Exception e) {
-      // not a big deal if we can't load
-    }
-  }
-
   void validateModule() {
     if (moduleElement != null && !moduleElement.isUnnamed()) {
       final var buildPluginUnavailable = !buildPluginAvailable();
-
-      //validate even classes not annotated with @ServiceProvider
-      if (buildPluginUnavailable) {
-        loadAllServices();
-      }
-
       // Keep track of missing services and their impls
       var moduleReader = new ModuleReader(services);
       try (var reader = getModuleInfoReader()) {
