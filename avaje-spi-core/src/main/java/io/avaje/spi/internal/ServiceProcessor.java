@@ -327,7 +327,6 @@ public class ServiceProcessor extends AbstractProcessor {
 
   void validateModule() {
     if (moduleElement != null && !moduleElement.isUnnamed()) {
-      final var buildPluginUnavailable = !buildPluginAvailable();
       // Keep track of missing services and their impls
       var moduleReader = new ModuleReader(services);
       try (var reader = getModuleInfoReader()) {
