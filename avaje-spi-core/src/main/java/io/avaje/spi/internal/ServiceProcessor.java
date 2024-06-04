@@ -218,6 +218,7 @@ public class ServiceProcessor extends AbstractProcessor {
         }
       }
     } catch (Exception e) {
+      logError("Failed to load service definition file", e);
     }
     return allServices;
   }
