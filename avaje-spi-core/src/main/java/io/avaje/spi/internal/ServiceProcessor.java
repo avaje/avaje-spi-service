@@ -12,6 +12,8 @@ import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -23,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.Filer;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -49,11 +50,26 @@ import io.avaje.prism.GenerateUtils;
 @GenerateAPContext
 @SuppressWarnings("exports")
 @GenerateModuleInfoReader
-@SupportedAnnotationTypes(ServiceProviderPrism.PRISM_TYPE)
+@SupportedAnnotationTypes({
+  ServiceProviderPrism.PRISM_TYPE,
+  // makes the processor automatically run if any of the other avaje processors are active
+  // so that automatic spi module validation happens
+  "io.avaje.inject.spi.Generated",
+  "io.avaje.jsonb.spi.Generated",
+  "io.avaje.http.api.Client",
+  "io.avaje.http.api.Controller",
+  "io.avaje.recordbuilder.Generated",
+  "io.avaje.prism.GenerateAPContext",
+  "javax.annotation.processing.Generated",
+  "javax.annotation.processing.SupportedAnnotationTypes",
+  "javax.annotation.processing.SupportedOptions",
+  "javax.annotation.processing.SupportedSourceVersion"
+})
 public class ServiceProcessor extends AbstractProcessor {
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
+
     return SourceVersion.latestSupported();
   }
 
@@ -65,6 +81,10 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private ModuleElement moduleElement;
 
+  private boolean writtenLocator;
+
+  private Path servicesDirectory;
+
   @Override
   public synchronized void init(ProcessingEnvironment env) {
     super.init(env);
@@ -75,6 +95,25 @@ public class ServiceProcessor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> tes, RoundEnvironment roundEnv) {
+
+    if (!writtenLocator) {
+      try {
+        this.servicesDirectory =
+            Path.of(
+                    processingEnv
+                        .getFiler()
+                        .createResource(
+                            StandardLocation.CLASS_OUTPUT,
+                            "",
+                            "META-INF/services/spi-service-locator")
+                        .toUri())
+                .getParent();
+      } catch (IOException e) {
+        logError("Failed to write service locator file");
+      }
+      writtenLocator = true;
+    }
+
     final var annotated =
         roundEnv.getElementsAnnotatedWith(typeElement(ServiceProviderPrism.PRISM_TYPE));
 
@@ -121,34 +160,14 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private void write() {
     // Read the existing service files
-    final Filer filer = processingEnv.getFiler();
-    for (final var e : services.entrySet()) {
-      final String contract = e.getKey();
-      try (final var file =
-              filer
-                  .getResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract)
-                  .openInputStream();
-          final var buffer =
-              new BufferedReader(new InputStreamReader(file, StandardCharsets.UTF_8)); ) {
-
-        String line;
-        while ((line = buffer.readLine()) != null) {
-          e.getValue().add(line);
-        }
-      } catch (final FileNotFoundException | java.nio.file.NoSuchFileException x) {
-        // missing and thus not created yet
-      } catch (final IOException x) {
-        logError(
-            "Failed to load existing service definition file. SPI: "
-                + contract
-                + " exception: "
-                + x);
-      }
-    }
-
+    var allServices = loadMetaInfServices();
     // Write the service files
-    for (final Map.Entry<String, Set<String>> e : services.entrySet()) {
+    for (final Map.Entry<String, Set<String>> e : allServices.entrySet()) {
       final String contract = e.getKey();
+      // avoid messing with other annotation processors' service generation
+      if (!services.containsKey(contract)) {
+        continue;
+      }
       logNote("Writing META-INF/services/%s", contract);
       try (final var file =
               processingEnv
@@ -165,6 +184,43 @@ public class ServiceProcessor extends AbstractProcessor {
         logError("Failed to write service definition files: %s", x);
       }
     }
+    services.putAll(allServices);
+  }
+
+  private Map<String, Set<String>> loadMetaInfServices() {
+    var allServices = new ConcurrentHashMap<>(services);
+
+    // Read the existing service files
+    try (var servicePaths = Files.walk(servicesDirectory, 1).skip(1)) {
+      Iterable<Path> pathIterable = servicePaths::iterator;
+      for (var servicePath : pathIterable) {
+        final var contract = servicePath.getFileName().toString();
+        if (APContext.typeElement(contract.replace("$", ".")) == null) {
+          continue;
+        }
+        var impls = allServices.computeIfAbsent(contract, k -> new TreeSet<>());
+
+        try (final var file = servicePath.toUri().toURL().openStream();
+            final var buffer = new BufferedReader(new InputStreamReader(file)); ) {
+
+          String line;
+          while ((line = buffer.readLine()) != null) {
+            line.replaceAll("\\s", "").replace(",", "\n").lines().forEach(impls::add);
+          }
+        } catch (final FileNotFoundException | java.nio.file.NoSuchFileException x) {
+          // missing and thus not created yet
+        } catch (final IOException x) {
+          logError(
+              "Failed to load existing service definition file. SPI: "
+                  + contract
+                  + " exception: "
+                  + x);
+        }
+      }
+    } catch (Exception e) {
+      logError("Failed to load service definition file", e);
+    }
+    return allServices;
   }
 
   private List<TypeElement> getServiceInterfaces(TypeElement type) {
@@ -207,7 +263,8 @@ public class ServiceProcessor extends AbstractProcessor {
     return typeElementList;
   }
 
-  // if a @Service Annotation is present on a superclass/interface, use that as the inferred service type
+  // if a @Service Annotation is present on a superclass/interface, use that as the inferred service
+  // type
   private boolean checkSPI(TypeMirror typeMirror, final List<TypeElement> typeElementList) {
     var type = asTypeElement(typeMirror);
     if (type == null) {
