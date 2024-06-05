@@ -13,6 +13,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -217,8 +218,10 @@ public class ServiceProcessor extends AbstractProcessor {
                   + x);
         }
       }
+    } catch (NoSuchFileException e) {
+      logNote("No service definition file found");
     } catch (Exception e) {
-      logError("Failed to load service definition file", e);
+      logError("Failed to load service definition file" + e);
     }
     return allServices;
   }
