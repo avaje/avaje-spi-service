@@ -114,9 +114,10 @@ public class ServiceProcessor extends AbstractProcessor {
       }
       writtenLocator = true;
     }
-
     final var annotated =
-        roundEnv.getElementsAnnotatedWith(typeElement(ServiceProviderPrism.PRISM_TYPE));
+        Optional.ofNullable(typeElement(ServiceProviderPrism.PRISM_TYPE))
+            .map(roundEnv::getElementsAnnotatedWith)
+            .orElseGet(Set::of);
 
     // discover services from the current compilation sources
     for (final var type : ElementFilter.typesIn(annotated)) {
@@ -347,8 +348,7 @@ public class ServiceProcessor extends AbstractProcessor {
         }
 
       } catch (Exception e) {
-        // can't read module
-        e.printStackTrace();
+        // can't read module, not a critical issue
       }
     }
   }
