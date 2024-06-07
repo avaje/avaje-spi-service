@@ -2,18 +2,15 @@ package io.avaje.spi.internal;
 
 import static io.avaje.spi.internal.APContext.typeElement;
 
-public class Utils {
+final class Utils {
 
-  static String getFQNFromBinaryType(String binaryType) {
-
+  static String fqnFromBinaryType(String binaryType) {
     var type = typeElement(binaryType.replace("$", "."));
-
     if (type != null) {
       return type.getQualifiedName().toString();
     }
 
     type = typeElement(replaceDollar(binaryType));
-
     if (type != null) {
       return type.getQualifiedName().toString();
     }
@@ -22,7 +19,7 @@ public class Utils {
   }
 
   // replace '$' with '.' only if there is a lowercase letter in front and uppercase letter behind
-  public static String replaceDollar(String str) {
+  static String replaceDollar(String str) {
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < str.length(); i++) {
       char currChar = str.charAt(i);
