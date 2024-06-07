@@ -1,6 +1,7 @@
 package io.avaje.spi.internal;
 
 import static io.avaje.spi.internal.APContext.*;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 
 import java.io.BufferedReader;
@@ -196,8 +197,8 @@ public class ServiceProcessor extends AbstractProcessor {
     try (var servicePaths = Files.walk(servicesDirectory, 1).skip(1)) {
       Iterable<Path> pathIterable = servicePaths::iterator;
       for (var servicePath : pathIterable) {
-        final var contract = servicePath.getFileName().toString();
-        if (APContext.typeElement(contract.replace("$", ".")) == null) {
+        final var contract = Utils.fqnFromBinaryType(servicePath.getFileName().toString());
+        if (APContext.typeElement(contract) == null) {
           continue;
         }
         var impls = allServices.computeIfAbsent(contract, k -> new TreeSet<>());
@@ -337,8 +338,7 @@ public class ServiceProcessor extends AbstractProcessor {
       try (var reader = getModuleInfoReader()) {
         moduleReader.read(reader, moduleElement);
         if (moduleReader.staticWarning()) {
-          logError(
-              moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
+          logError(moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
         }
         if (moduleReader.coreWarning()) {
           logWarn(moduleElement, "io.avaje.spi.core should not be used directly");
@@ -354,21 +354,17 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private void logModuleError(ModuleReader moduleReader) {
-    final Map<String, String> shortQualifiedMap =
-        services.keySet().stream().collect(toMap(s -> s.replace("$", "."), s -> s));
-
-    moduleReader
-        .missing()
-        .forEach(
-            (k, v) -> {
-              if (!v.isEmpty()) {
-                logError(
-                    moduleElement,
-                    "Missing `provides %s with %s;`",
-                    k,
-                    String.join(", ", services.get(shortQualifiedMap.get(k))));
-              }
-            });
+    moduleReader.missing().forEach((k, v) -> {
+      if (!v.isEmpty()) {
+        logError(
+                moduleElement,
+                "Missing `provides %s with %s;` Please ensure that all META-INF service classes are registered correctly",
+                k,
+                services.get(k).stream()
+                        .map(Utils::fqnFromBinaryType)
+                        .collect(joining(", ")));
+      }
+    });
   }
 
   private static boolean buildPluginAvailable() {
