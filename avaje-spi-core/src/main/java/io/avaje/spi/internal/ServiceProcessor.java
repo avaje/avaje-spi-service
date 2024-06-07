@@ -1,6 +1,7 @@
 package io.avaje.spi.internal;
 
 import static io.avaje.spi.internal.APContext.*;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 
 import java.io.BufferedReader;
@@ -196,8 +197,8 @@ public class ServiceProcessor extends AbstractProcessor {
     try (var servicePaths = Files.walk(servicesDirectory, 1).skip(1)) {
       Iterable<Path> pathIterable = servicePaths::iterator;
       for (var servicePath : pathIterable) {
-        final var contract = servicePath.getFileName().toString();
-        if (APContext.typeElement(contract.replace("$", ".")) == null) {
+        final var contract = Utils.getFQNFromBinaryType(servicePath.getFileName().toString());
+        if (APContext.typeElement(contract) == null) {
           continue;
         }
         var impls = allServices.computeIfAbsent(contract, k -> new TreeSet<>());
@@ -354,9 +355,6 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private void logModuleError(ModuleReader moduleReader) {
-    final Map<String, String> shortQualifiedMap =
-        services.keySet().stream().collect(toMap(s -> s.replace("$", "."), s -> s));
-
     moduleReader
         .missing()
         .forEach(
@@ -364,9 +362,11 @@ public class ServiceProcessor extends AbstractProcessor {
               if (!v.isEmpty()) {
                 logError(
                     moduleElement,
-                    "Missing `provides %s with %s;`",
+                    "Missing `provides %s with %s;` Please ensure that all META-INF service classes are registered correctly",
                     k,
-                    String.join(", ", services.get(shortQualifiedMap.get(k))));
+                    services.get(k).stream()
+                        .map(Utils::getFQNFromBinaryType)
+                        .collect(joining(", ")));
               }
             });
   }

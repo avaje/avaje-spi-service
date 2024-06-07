@@ -10,8 +10,11 @@ module io.avaje.spi.blackbox {
 
   		io.avaje.spi. test.CommonClass2,
   		io.avaje.spi. test.CommonClass3
-  		, io . avaje . spi . test . ManualSPI;
+  		, io . avaje . spi . test . ManualSPI,
+  		 io.avaje.spi.test.SPIInterface.DefaultSPIInterface
+       ;
   exports io.avaje.spi.test;
 
-  provides io.avaje.spi.test.SPIInterface.NestedSPIInterface with CommonClass2;
+  provides io.avaje.spi.test.SPIInterface.NestedSPIInterface with io.avaje.spi.test.CommonClass.CommonClassNested$SPIInterface, io.avaje.spi.test.CommonClass2, io.avaje.spi.test.SPIInterface.NestedSPIInterface.DefaultNested$$SPIInterface;
+
  }
