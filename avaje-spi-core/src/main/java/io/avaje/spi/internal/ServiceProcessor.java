@@ -2,7 +2,6 @@ package io.avaje.spi.internal;
 
 import static io.avaje.spi.internal.APContext.*;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toMap;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -18,6 +17,8 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -83,9 +84,9 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private ModuleElement moduleElement;
 
-  private boolean writtenLocator;
-
   private Path servicesDirectory;
+
+  private Path generatedSpisDir;
 
   @Override
   public synchronized void init(ProcessingEnvironment env) {
@@ -93,34 +94,60 @@ public class ServiceProcessor extends AbstractProcessor {
     this.elements = env.getElementUtils();
     this.types = env.getTypeUtils();
     APContext.init(env);
+
+    final var filer = env.getFiler();
+    try {
+      final var uri =
+          filer
+              .createResource(
+                  StandardLocation.CLASS_OUTPUT, "", "META-INF/services/spi-service-locator")
+              .toUri();
+      this.servicesDirectory = Path.of(uri).getParent();
+      this.generatedSpisDir =
+          Path.of(
+              URI.create(
+                  uri.toString()
+                      .replace(
+                          "META-INF/services/spi-service-locator", "META-INF/generated-services")));
+    } catch (IOException e) {
+      logError("Failed to write service locator file");
+    }
   }
 
   @Override
   public boolean process(Set<? extends TypeElement> tes, RoundEnvironment roundEnv) {
 
-    if (!writtenLocator) {
-      try {
-        this.servicesDirectory =
-            Path.of(
-                    processingEnv
-                        .getFiler()
-                        .createResource(
-                            StandardLocation.CLASS_OUTPUT,
-                            "",
-                            "META-INF/services/spi-service-locator")
-                        .toUri())
-                .getParent();
-      } catch (IOException e) {
-        logError("Failed to write service locator file");
-      }
-      writtenLocator = true;
-    }
     final var annotated =
         Optional.ofNullable(typeElement(ServiceProviderPrism.PRISM_TYPE))
             .map(roundEnv::getElementsAnnotatedWith)
             .orElseGet(Set::of);
 
     // discover services from the current compilation sources
+    processSpis(annotated);
+
+    findModule(tes, roundEnv);
+    if (roundEnv.processingOver()) {
+      //load generated service files into main services
+      var generatedSpis = loadMetaInfServices(generatedSpisDir);
+      generatedSpis.forEach(
+          (key, value) ->
+              services.merge(
+                  key,
+                  value,
+                  (oldValue, newValue) -> {
+                    if (oldValue == null) {
+                      oldValue = new HashSet<>();
+                    }
+                    oldValue.addAll(newValue);
+                    return oldValue;
+                  }));
+      write();
+      validateModule();
+    }
+    return false;
+  }
+
+  private void processSpis(final Collection<? extends Element> annotated) {
     for (final var type : ElementFilter.typesIn(annotated)) {
       validate(type);
 
@@ -135,12 +162,6 @@ public class ServiceProcessor extends AbstractProcessor {
         v.add(elements.getBinaryName(type).toString());
       }
     }
-    findModule(tes, roundEnv);
-    if (roundEnv.processingOver()) {
-      write();
-      validateModule();
-    }
-    return false;
   }
 
   private void validate(final TypeElement type) {
@@ -163,7 +184,8 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private void write() {
     // Read the existing service files
-    var allServices = loadMetaInfServices();
+    var allServices = loadMetaInfServices(servicesDirectory);
+    allServices.putAll(services);
     // Write the service files
     for (final Map.Entry<String, Set<String>> e : allServices.entrySet()) {
       final String contract = e.getKey();
@@ -190,8 +212,8 @@ public class ServiceProcessor extends AbstractProcessor {
     services.putAll(allServices);
   }
 
-  private Map<String, Set<String>> loadMetaInfServices() {
-    var allServices = new ConcurrentHashMap<>(services);
+  private Map<String, Set<String>> loadMetaInfServices(Path servicesDirectory) {
+    var allServices = new HashMap<String, Set<String>>();
 
     // Read the existing service files
     try (var servicePaths = Files.walk(servicesDirectory, 1).skip(1)) {
