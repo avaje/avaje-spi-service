@@ -63,6 +63,7 @@ import io.avaje.prism.GenerateUtils;
   "io.avaje.http.api.Controller",
   "io.avaje.recordbuilder.Generated",
   "io.avaje.prism.GenerateAPContext",
+  "io.avaje.validation.spi.Generated",
   "javax.annotation.processing.Generated",
   "javax.annotation.processing.SupportedAnnotationTypes",
   "javax.annotation.processing.SupportedOptions",
