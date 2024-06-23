@@ -11,3 +11,7 @@ build/
 */bin/
 .DS_Store
 
+/bin
+blackbox-test-spi/META-INF/services/io.avaje.spi.test.SPIInterface
+blackbox-test-spi/META-INF/services/io.avaje.spi.test.SPIInterface$NestedSPIInterface
+blackbox-test-spi/io.avaje.spi.test.SPIInterface$NestedSPIInterface

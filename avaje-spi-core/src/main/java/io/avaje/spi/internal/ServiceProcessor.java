@@ -18,7 +18,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -111,7 +110,7 @@ public class ServiceProcessor extends AbstractProcessor {
                       .replace(
                           "META-INF/services/spi-service-locator", "META-INF/generated-services")));
     } catch (IOException e) {
-      logError("Failed to write service locator file");
+      // not an issue worth failing over
     }
   }
 
@@ -130,18 +129,7 @@ public class ServiceProcessor extends AbstractProcessor {
     if (roundEnv.processingOver()) {
       //load generated service files into main services
       var generatedSpis = loadMetaInfServices(generatedSpisDir);
-      generatedSpis.forEach(
-          (key, value) ->
-              services.merge(
-                  key,
-                  value,
-                  (oldValue, newValue) -> {
-                    if (oldValue == null) {
-                      oldValue = new HashSet<>();
-                    }
-                    oldValue.addAll(newValue);
-                    return oldValue;
-                  }));
+      Utils.mergeServices(generatedSpis, services);
       write();
       validateModule();
     }
@@ -186,14 +174,20 @@ public class ServiceProcessor extends AbstractProcessor {
   private void write() {
     // Read the existing service files
     var allServices = loadMetaInfServices(servicesDirectory);
-    allServices.putAll(services);
+
+    // add loaded services without messing with other annotation processors' service generation
+    allServices.forEach(
+        (key, value) ->
+            services.computeIfPresent(
+                key,
+                (k, v) -> {
+                  v.addAll(value);
+                  return v;
+                }));
+
     // Write the service files
-    for (final Map.Entry<String, Set<String>> e : allServices.entrySet()) {
+    for (final var e : services.entrySet()) {
       final String contract = e.getKey();
-      // avoid messing with other annotation processors' service generation
-      if (!services.containsKey(contract)) {
-        continue;
-      }
       logNote("Writing META-INF/services/%s", contract);
       try (final var file =
               processingEnv
@@ -210,11 +204,16 @@ public class ServiceProcessor extends AbstractProcessor {
         logError("Failed to write service definition files: %s", x);
       }
     }
-    services.putAll(allServices);
+
+    // merge all services for module validation
+    Utils.mergeServices(allServices, services);
   }
 
   private Map<String, Set<String>> loadMetaInfServices(Path servicesDirectory) {
     var allServices = new HashMap<String, Set<String>>();
+    if (servicesDirectory == null) {
+      return allServices;
+    }
 
     // Read the existing service files
     try (var servicePaths = Files.walk(servicesDirectory, 1).skip(1)) {
@@ -377,17 +376,28 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private void logModuleError(ModuleReader moduleReader) {
-    moduleReader.missing().forEach((k, v) -> {
-      if (!v.isEmpty()) {
-        logError(
-                moduleElement,
-                "Missing `provides %s with %s;` Please ensure that all META-INF service classes are registered correctly",
-                k,
-                services.get(k).stream()
+    moduleReader
+        .missing()
+        .forEach(
+            (k, v) -> {
+              if (!v.isEmpty()) {
+                var contract =
+                    services.keySet().stream()
+                        .filter(s -> s.replace("$", ".").equals(k.replace("$", ".")))
+                        .findAny()
+                        .orElseThrow();
+                var missingImpls =
+                    services.get(contract).stream()
                         .map(Utils::fqnFromBinaryType)
-                        .collect(joining(", ")));
-      }
-    });
+                        .collect(joining(", "));
+
+                logError(
+                    moduleElement,
+                    "Missing `provides %s with %s;`",
+                    contract,
+                    missingImpls);
+              }
+            });
   }
 
   private static boolean buildPluginAvailable() {

@@ -10,9 +10,7 @@ import java.util.Set;
 
 import javax.lang.model.element.ModuleElement;
 
-import io.avaje.prism.GenerateModuleInfoReader;
-
-@GenerateModuleInfoReader
+// @GenerateModuleInfoReader
 final class ModuleReader {
   private final Map<String, Set<String>> missingServicesMap = new HashMap<>();
 
@@ -25,7 +23,8 @@ final class ModuleReader {
   }
 
   private void add(String k, Set<String> v) {
-    missingServicesMap.put(Utils.fqnFromBinaryType(k), v.stream().map(Utils::fqnFromBinaryType).collect(toSet()));
+    missingServicesMap.put(
+        k.replace("$", "."), v.stream().map(p -> p.replace("$", ".")).collect(toSet()));
   }
 
   void read(BufferedReader reader, ModuleElement element) throws IOException {
@@ -42,19 +41,23 @@ final class ModuleReader {
         break;
       }
     }
+    module
+        .provides()
+        .forEach(
+            p -> {
+              final var contract = p.service().replace("$", ".");
 
-    module.provides().forEach(p -> {
-      if (!missingServicesMap.containsKey(p.service())) {
-        return;
-      }
+              if (!missingServicesMap.containsKey(contract)) {
+                return;
+              }
+              var impls = p.implementations();
+              var missing = missingServicesMap.get(contract);
+              if (missing.size() != impls.size()) {
+                return;
+              }
+              impls.stream().map(s -> s.replace("$", ".")).forEach(missing::remove);
 
-      var impls = p.implementations();
-      var missing = missingServicesMap.get(p.service());
-      if (missing.size() != impls.size()) {
-        return;
-      }
-      impls.stream().map(Utils::fqnFromBinaryType).forEach(missing::remove);
-    });
+            });
   }
 
   boolean staticWarning() {
