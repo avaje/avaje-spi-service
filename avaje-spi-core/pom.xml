@@ -13,7 +13,7 @@
 		<tag>HEAD</tag>
 	</scm>
   <properties>
-    <avaje.prisms.version>1.21</avaje.prisms.version>
+    <avaje.prisms.version>1.25</avaje.prisms.version>
   </properties>
 
   <dependencies>
@@ -23,6 +23,12 @@
       <version>${avaje.prisms.version}</version>
       <optional>true</optional>
       <scope>provided</scope>
+      <exclusions>
+      	<exclusion>
+      		<groupId>io.avaje</groupId>
+      		<artifactId>avaje-spi-service</artifactId>
+      	</exclusion>
+      </exclusions>
     </dependency>
     
 	<dependency>
