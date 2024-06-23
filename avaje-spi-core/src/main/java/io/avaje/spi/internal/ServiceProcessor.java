@@ -394,7 +394,7 @@ public class ServiceProcessor extends AbstractProcessor {
                 logError(
                     moduleElement,
                     "Missing `provides %s with %s;`",
-                    contract,
+                    Utils.fqnFromBinaryType(contract),
                     missingImpls);
               }
             });
