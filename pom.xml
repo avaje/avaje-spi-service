@@ -7,7 +7,7 @@
 	</parent>
 	<groupId>io.avaje</groupId>
 	<artifactId>avaje-spi-parent</artifactId>
-	<version>1.11</version>
+	<version>1.12-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>avaje-spi-parent</name>
 	<description>Service configuration generator</description>
