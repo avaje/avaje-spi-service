@@ -176,14 +176,11 @@ public class ServiceProcessor extends AbstractProcessor {
     var allServices = loadMetaInfServices(servicesDirectory);
 
     // add loaded services without messing with other annotation processors' service generation
-    allServices.forEach(
-        (key, value) ->
-            services.computeIfPresent(
-                key,
-                (k, v) -> {
-                  v.addAll(value);
-                  return v;
-                }));
+    allServices.forEach((key, value) ->
+      services.computeIfPresent(key, (k, v) -> {
+        v.addAll(value);
+        return v;
+      }));
 
     // Write the service files
     for (final var e : services.entrySet()) {
@@ -235,11 +232,7 @@ public class ServiceProcessor extends AbstractProcessor {
         } catch (final FileNotFoundException | java.nio.file.NoSuchFileException x) {
           // missing and thus not created yet
         } catch (final IOException x) {
-          logError(
-              "Failed to load existing service definition file. SPI: "
-                  + contract
-                  + " exception: "
-                  + x);
+          logError("Failed to load existing service definition file. SPI: " + contract + " exception: " + x);
         }
       }
     } catch (NoSuchFileException e) {
@@ -290,8 +283,7 @@ public class ServiceProcessor extends AbstractProcessor {
     return typeElementList;
   }
 
-  // if a @Service Annotation is present on a superclass/interface, use that as the inferred service
-  // type
+  // if a @Service Annotation is present on a superclass/interface, use that as the inferred service type
   private boolean checkSPI(TypeMirror typeMirror, final List<TypeElement> typeElementList) {
     var type = asTypeElement(typeMirror);
     if (type == null) {
@@ -383,7 +375,7 @@ public class ServiceProcessor extends AbstractProcessor {
               if (!v.isEmpty()) {
                 var contract =
                     services.keySet().stream()
-                        .filter(s -> s.replace("$", ".").equals(k.replace("$", ".")))
+                        .filter(s -> s.replace('$', '.').equals(k.replace('$', '.')))
                         .findAny()
                         .orElseThrow();
                 var missingImpls =
@@ -391,11 +383,7 @@ public class ServiceProcessor extends AbstractProcessor {
                         .map(Utils::fqnFromBinaryType)
                         .collect(joining(", "));
 
-                logError(
-                    moduleElement,
-                    "Missing `provides %s with %s;`",
-                    Utils.fqnFromBinaryType(contract),
-                    missingImpls);
+                logError(moduleElement, "Missing `provides %s with %s;`", Utils.fqnFromBinaryType(contract), missingImpls);
               }
             });
   }

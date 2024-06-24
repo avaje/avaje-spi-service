@@ -10,12 +10,10 @@ import java.util.Set;
 
 import javax.lang.model.element.ModuleElement;
 
-// @GenerateModuleInfoReader
 final class ModuleReader {
+
   private final Map<String, Set<String>> missingServicesMap = new HashMap<>();
-
   private boolean staticWarning;
-
   private boolean coreWarning;
 
   ModuleReader(Map<String, Set<String>> services) {
@@ -23,8 +21,11 @@ final class ModuleReader {
   }
 
   private void add(String k, Set<String> v) {
-    missingServicesMap.put(
-        k.replace("$", "."), v.stream().map(p -> p.replace("$", ".")).collect(toSet()));
+    missingServicesMap.put(replace$(k), v.stream().map(ModuleReader::replace$).collect(toSet()));
+  }
+
+  private static String replace$(String k) {
+    return k.replace('$', '.');
   }
 
   void read(BufferedReader reader, ModuleElement element) throws IOException {
@@ -41,23 +42,18 @@ final class ModuleReader {
         break;
       }
     }
-    module
-        .provides()
-        .forEach(
-            p -> {
-              final var contract = p.service().replace("$", ".");
-
-              if (!missingServicesMap.containsKey(contract)) {
-                return;
-              }
-              var impls = p.implementations();
-              var missing = missingServicesMap.get(contract);
-              if (missing.size() != impls.size()) {
-                return;
-              }
-              impls.stream().map(s -> s.replace("$", ".")).forEach(missing::remove);
-
-            });
+    module.provides().forEach(p -> {
+      final var contract = replace$(p.service());
+      if (!missingServicesMap.containsKey(contract)) {
+        return;
+      }
+      var impls = p.implementations();
+      var missing = missingServicesMap.get(contract);
+      if (missing.size() != impls.size()) {
+        return;
+      }
+      impls.stream().map(ModuleReader::replace$).forEach(missing::remove);
+    });
   }
 
   boolean staticWarning() {
