@@ -2,10 +2,14 @@ package io.avaje.spi.internal;
 
 import static io.avaje.spi.internal.APContext.typeElement;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 final class Utils {
 
   static String fqnFromBinaryType(String binaryType) {
-    var type = typeElement(binaryType.replace("$", "."));
+    var type = typeElement(binaryType.replace('$', '.'));
     if (type != null) {
       return type.getQualifiedName().toString();
     }
@@ -36,5 +40,13 @@ final class Utils {
       }
     }
     return sb.toString();
+  }
+
+  static void mergeServices(Map<String, Set<String>> newMap, Map<String, Set<String>> oldMap) {
+    newMap.forEach((key, value) ->
+      oldMap.merge(key, value, (oldValue, newValue) -> {
+        oldValue.addAll(newValue);
+        return oldValue;
+      }));
   }
 }
