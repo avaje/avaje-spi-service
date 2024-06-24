@@ -45,9 +45,6 @@ final class Utils {
   static void mergeServices(Map<String, Set<String>> newMap, Map<String, Set<String>> oldMap) {
     newMap.forEach((key, value) ->
       oldMap.merge(key, value, (oldValue, newValue) -> {
-        if (oldValue == null) { // FIXME: oldValue is never null
-          oldValue = new HashSet<>();
-        }
         oldValue.addAll(newValue);
         return oldValue;
       }));
