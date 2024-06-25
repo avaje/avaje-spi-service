@@ -76,6 +76,12 @@ public class ServiceProcessor extends AbstractProcessor {
     return SourceVersion.latestSupported();
   }
 
+  private static final Set<String> EXEMPT_SERVICES =
+      Set.of(
+          "io.avaje.inject.spi.InjectExtension",
+          "io.avaje.validation.spi.ValidationExtension",
+          "io.avaje.jsonb.spi.JsonbExtension");
+
   private final Map<String, Set<String>> services = new ConcurrentHashMap<>();
 
   private Elements elements;
@@ -85,8 +91,6 @@ public class ServiceProcessor extends AbstractProcessor {
   private ModuleElement moduleElement;
 
   private Path servicesDirectory;
-
-  private Path generatedSpisDir;
 
   @Override
   public synchronized void init(ProcessingEnvironment env) {
@@ -103,12 +107,11 @@ public class ServiceProcessor extends AbstractProcessor {
                   StandardLocation.CLASS_OUTPUT, "", "META-INF/services/spi-service-locator")
               .toUri();
       this.servicesDirectory = Path.of(uri).getParent();
-      this.generatedSpisDir =
-          Path.of(
-              URI.create(
-                  uri.toString()
-                      .replace(
-                          "META-INF/services/spi-service-locator", "META-INF/generated-services")));
+      Path.of(
+          URI.create(
+              uri.toString()
+                  .replace(
+                      "META-INF/services/spi-service-locator", "META-INF/generated-services")));
     } catch (IOException e) {
       // not an issue worth failing over
     }
@@ -127,9 +130,6 @@ public class ServiceProcessor extends AbstractProcessor {
 
     findModule(tes, roundEnv);
     if (roundEnv.processingOver()) {
-      //load generated service files into main services
-      var generatedSpis = loadMetaInfServices(generatedSpisDir);
-      Utils.mergeServices(generatedSpis, services);
       write();
       validateModule();
     }
@@ -185,6 +185,9 @@ public class ServiceProcessor extends AbstractProcessor {
     // Write the service files
     for (final var e : services.entrySet()) {
       final String contract = e.getKey();
+      if (EXEMPT_SERVICES.contains(contract)) {
+        continue;
+      }
       logNote("Writing META-INF/services/%s", contract);
       try (final var file =
               processingEnv
