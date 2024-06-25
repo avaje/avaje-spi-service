@@ -72,7 +72,6 @@ public class ServiceProcessor extends AbstractProcessor {
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
-
     return SourceVersion.latestSupported();
   }
 
@@ -101,17 +100,10 @@ public class ServiceProcessor extends AbstractProcessor {
 
     final var filer = env.getFiler();
     try {
-      final var uri =
-          filer
-              .createResource(
-                  StandardLocation.CLASS_OUTPUT, "", "META-INF/services/spi-service-locator")
-              .toUri();
+      final var uri = filer
+        .createResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/spi-service-locator")
+        .toUri();
       this.servicesDirectory = Path.of(uri).getParent();
-      Path.of(
-          URI.create(
-              uri.toString()
-                  .replace(
-                      "META-INF/services/spi-service-locator", "META-INF/generated-services")));
     } catch (IOException e) {
       // not an issue worth failing over
     }
@@ -119,7 +111,6 @@ public class ServiceProcessor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> tes, RoundEnvironment roundEnv) {
-
     final var annotated =
         Optional.ofNullable(typeElement(ServiceProviderPrism.PRISM_TYPE))
             .map(roundEnv::getElementsAnnotatedWith)
@@ -190,12 +181,11 @@ public class ServiceProcessor extends AbstractProcessor {
       }
       logNote("Writing META-INF/services/%s", contract);
       try (final var file =
-              processingEnv
-                  .getFiler()
-                  .createResource(
-                      StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract)
-                  .openOutputStream();
-          final var pw = new PrintWriter(new OutputStreamWriter(file, StandardCharsets.UTF_8)); ) {
+             processingEnv
+               .getFiler()
+               .createResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/" + contract)
+               .openOutputStream();
+           final var pw = new PrintWriter(new OutputStreamWriter(file, StandardCharsets.UTF_8));) {
 
         for (final String value : e.getValue()) {
           pw.println(value);
@@ -230,7 +220,7 @@ public class ServiceProcessor extends AbstractProcessor {
 
           String line;
           while ((line = buffer.readLine()) != null) {
-            line.replaceAll("\\s", "").replace(",", "\n").lines().forEach(impls::add);
+            line.replaceAll("\\s", "").replace(',', '\n').lines().forEach(impls::add);
           }
         } catch (final FileNotFoundException | java.nio.file.NoSuchFileException x) {
           // missing and thus not created yet
