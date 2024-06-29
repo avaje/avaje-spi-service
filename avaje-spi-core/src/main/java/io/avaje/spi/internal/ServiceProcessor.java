@@ -2,6 +2,7 @@ package io.avaje.spi.internal;
 
 import static io.avaje.spi.internal.APContext.*;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toSet;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -113,8 +114,8 @@ public class ServiceProcessor extends AbstractProcessor {
 
       // write a note in target so that other apts can know spi is running
       var file = APContext.getBuildResource("avaje-processors.txt");
-      Files.writeString(
-          file, "avaje-spi-core\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+      var addition = Files.lines(file).distinct().collect(joining("\n")) + "\navaje-spi-core";
+      Files.writeString(file, addition, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
 
     } catch (IOException e) {
       // not an issue worth failing over
@@ -146,7 +147,6 @@ public class ServiceProcessor extends AbstractProcessor {
       lines
           .filter(EXEMPT_SERVICES_MAP::containsKey)
           .forEach(p -> EXEMPT_SERVICES.add(EXEMPT_SERVICES_MAP.get(p)));
-      System.out.println(EXEMPT_SERVICES);
     } catch (IOException e) {
       // not worth failing
     }
