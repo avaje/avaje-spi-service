@@ -114,9 +114,18 @@ public class ServiceProcessor extends AbstractProcessor {
 
       // write a note in target so that other apts can know spi is running
       var file = APContext.getBuildResource("avaje-processors.txt");
-      var addition = Files.lines(file).distinct().collect(joining("\n")) + "\navaje-spi-core";
-      Files.writeString(file, addition, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
-
+      var addition = new StringBuilder();
+      //if file exists, dedup and append current processor
+      if (file.toFile().exists()) {
+        var result =
+            Stream.concat(Files.lines(file), Stream.of("avaje-spi-core"))
+                .distinct()
+                .collect(joining("\n"));
+        addition.append(result);
+      } else {
+        addition.append("avaje-spi-core");
+      }
+      Files.writeString(file, addition.toString(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
     } catch (IOException e) {
       // not an issue worth failing over
     }
