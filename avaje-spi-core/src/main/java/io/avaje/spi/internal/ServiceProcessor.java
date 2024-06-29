@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -75,11 +76,16 @@ public class ServiceProcessor extends AbstractProcessor {
     return SourceVersion.latestSupported();
   }
 
-  private static final Set<String> EXEMPT_SERVICES =
-      Set.of(
+  private static final Map<String, String> EXEMPT_SERVICES_MAP =
+      Map.of(
+          "avaje-inject-generator",
           "io.avaje.inject.spi.InjectExtension",
+          "avaje-validator-generator",
           "io.avaje.validation.spi.ValidationExtension",
+          "avaje-jsonb-generator",
           "io.avaje.jsonb.spi.JsonbExtension");
+
+  private static final Set<String> EXEMPT_SERVICES = new HashSet<>();
 
   private final Map<String, Set<String>> services = new ConcurrentHashMap<>();
 
@@ -97,13 +103,17 @@ public class ServiceProcessor extends AbstractProcessor {
     this.elements = env.getElementUtils();
     this.types = env.getTypeUtils();
     APContext.init(env);
-
     final var filer = env.getFiler();
     try {
       final var uri = filer
         .createResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/services/spi-service-locator")
         .toUri();
       this.servicesDirectory = Path.of(uri).getParent();
+
+      // write a note in target so that other apts can know spi is running
+      var file = APContext.getBuildResource("avaje-processors/avaje-spi-core");
+      Files.writeString(file, "avaje-spi-core initialized");
+
     } catch (IOException e) {
       // not an issue worth failing over
     }
@@ -121,10 +131,25 @@ public class ServiceProcessor extends AbstractProcessor {
 
     findModule(tes, roundEnv);
     if (roundEnv.processingOver()) {
+      loadExemptService();
       write();
       validateModule();
     }
     return false;
+  }
+
+  private void loadExemptService() {
+    try (var paths = Files.walk(APContext.getBuildResource("avaje-processors"), 1).skip(1)) {
+
+      paths
+          .map(Path::getFileName)
+          .map(Path::toString)
+          .filter(EXEMPT_SERVICES_MAP::containsKey)
+          .forEach(p -> EXEMPT_SERVICES.add(EXEMPT_SERVICES_MAP.get(p)));
+      System.out.println(EXEMPT_SERVICES);
+    } catch (IOException e) {
+      // not worth failing
+    }
   }
 
   private void processSpis(final Collection<? extends Element> annotated) {
@@ -382,23 +407,13 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private static boolean buildPluginAvailable() {
-    return resource("target/avaje-plugin-exists.txt", "/target/classes")
-        || resource("build/avaje-plugin-exists.txt", "/build/classes/java/main");
+    return resource("avaje-plugin-exists.txt");
   }
 
-  private static boolean resource(String relativeName, String replace) {
-    try (var inputStream =
-        new URI(
-                filer()
-                    .getResource(StandardLocation.CLASS_OUTPUT, "", relativeName)
-                    .toUri()
-                    .toString()
-                    .replace(replace, ""))
-            .toURL()
-            .openStream()) {
-
-      return inputStream.available() > 0;
-    } catch (IOException | URISyntaxException e) {
+  private static boolean resource(String relativeName) {
+    try {
+      return APContext.getBuildResource(relativeName).toFile().exists();
+    } catch (final Exception e) {
       return false;
     }
   }
