@@ -15,3 +15,5 @@ build/
 blackbox-test-spi/META-INF/services/io.avaje.spi.test.SPIInterface
 blackbox-test-spi/META-INF/services/io.avaje.spi.test.SPIInterface$NestedSPIInterface
 blackbox-test-spi/io.avaje.spi.test.SPIInterface$NestedSPIInterface
+blackbox-test-spi/avaje-processors.txt
+blackbox-test-spi/io.avaje.inject.spi.InjectExtension

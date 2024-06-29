@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -111,8 +112,9 @@ public class ServiceProcessor extends AbstractProcessor {
       this.servicesDirectory = Path.of(uri).getParent();
 
       // write a note in target so that other apts can know spi is running
-      var file = APContext.getBuildResource("avaje-processors/avaje-spi-core");
-      Files.writeString(file, "avaje-spi-core initialized");
+      var file = APContext.getBuildResource("avaje-processors.txt");
+      Files.writeString(
+          file, "avaje-spi-core\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 
     } catch (IOException e) {
       // not an issue worth failing over
@@ -139,11 +141,9 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private void loadExemptService() {
-    try (var paths = Files.walk(APContext.getBuildResource("avaje-processors"), 1).skip(1)) {
+    try (var lines = Files.lines(APContext.getBuildResource("avaje-processors.txt"))) {
 
-      paths
-          .map(Path::getFileName)
-          .map(Path::toString)
+      lines
           .filter(EXEMPT_SERVICES_MAP::containsKey)
           .forEach(p -> EXEMPT_SERVICES.add(EXEMPT_SERVICES_MAP.get(p)));
       System.out.println(EXEMPT_SERVICES);
