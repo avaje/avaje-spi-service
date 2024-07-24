@@ -384,7 +384,7 @@ public class ServiceProcessor extends AbstractProcessor {
         if (moduleReader.coreWarning()) {
           logWarn(moduleElement, "io.avaje.spi.core should not be used directly");
         }
-        if (!buildPluginAvailable()) {
+        if (!buildPluginAvailable() && !APContext.isTestCompilation()) {
           logModuleError(moduleReader);
         }
 
