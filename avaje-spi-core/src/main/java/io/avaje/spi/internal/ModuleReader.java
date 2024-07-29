@@ -28,8 +28,7 @@ final class ModuleReader {
     return k.replace('$', '.');
   }
 
-  void read(BufferedReader reader, ModuleElement element) throws IOException {
-    var module = new ModuleInfoReader(element, reader);
+  void read(ModuleInfoReader module) {
     for (var require : module.requires()) {
       var dep = require.getDependency();
       if (!require.isStatic() && dep.getQualifiedName().contentEquals("io.avaje.spi")) {

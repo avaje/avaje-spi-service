@@ -376,21 +376,22 @@ public class ServiceProcessor extends AbstractProcessor {
     if (moduleElement != null && !moduleElement.isUnnamed()) {
       // Keep track of missing services and their impls
       var moduleReader = new ModuleReader(services);
-      try (var reader = getModuleInfoReader()) {
-        moduleReader.read(reader, moduleElement);
-        if (moduleReader.staticWarning()) {
-          logError(moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
-        }
-        if (moduleReader.coreWarning()) {
-          logWarn(moduleElement, "io.avaje.spi.core should not be used directly");
-        }
-        if (!buildPluginAvailable() && !APContext.isTestCompilation()) {
-          logModuleError(moduleReader);
-        }
-
-      } catch (Exception e) {
-        // can't read module, not a critical issue
-      }
+      APContext.moduleInfoReader()
+          .ifPresent(
+              reader -> {
+                moduleReader.read(reader);
+                if (moduleReader.staticWarning()) {
+                  logError(
+                      moduleElement,
+                      "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
+                }
+                if (moduleReader.coreWarning()) {
+                  logWarn(moduleElement, "io.avaje.spi.core should not be used directly");
+                }
+                if (!buildPluginAvailable() && !APContext.isTestCompilation()) {
+                  logModuleError(moduleReader);
+                }
+              });
     }
   }
 
