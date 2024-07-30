@@ -2,7 +2,6 @@ package io.avaje.spi.internal;
 
 import static io.avaje.spi.internal.APContext.*;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toSet;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -10,8 +9,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -118,9 +115,9 @@ public class ServiceProcessor extends AbstractProcessor {
       //if file exists, dedup and append current processor
       if (file.toFile().exists()) {
         var result =
-            Stream.concat(Files.lines(file), Stream.of("avaje-spi-core"))
-                .distinct()
-                .collect(joining("\n"));
+          Stream.concat(Files.lines(file), Stream.of("avaje-spi-core"))
+            .distinct()
+            .collect(joining("\n"));
         addition.append(result);
       } else {
         addition.append("avaje-spi-core");
@@ -134,9 +131,9 @@ public class ServiceProcessor extends AbstractProcessor {
   @Override
   public boolean process(Set<? extends TypeElement> tes, RoundEnvironment roundEnv) {
     final var annotated =
-        Optional.ofNullable(typeElement(ServiceProviderPrism.PRISM_TYPE))
-            .map(roundEnv::getElementsAnnotatedWith)
-            .orElseGet(Set::of);
+      Optional.ofNullable(typeElement(ServiceProviderPrism.PRISM_TYPE))
+        .map(roundEnv::getElementsAnnotatedWith)
+        .orElseGet(Set::of);
 
     // discover services from the current compilation sources
     processSpis(annotated);
@@ -152,10 +149,9 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private void loadExemptService() {
     try (var lines = Files.lines(APContext.getBuildResource("avaje-processors.txt"))) {
-
       lines
-          .filter(EXEMPT_SERVICES_MAP::containsKey)
-          .forEach(p -> EXEMPT_SERVICES.add(EXEMPT_SERVICES_MAP.get(p)));
+        .filter(EXEMPT_SERVICES_MAP::containsKey)
+        .forEach(p -> EXEMPT_SERVICES.add(EXEMPT_SERVICES_MAP.get(p)));
     } catch (IOException e) {
       // not worth failing
     }
@@ -186,11 +182,11 @@ public class ServiceProcessor extends AbstractProcessor {
       logError(type, "A Service Provider must be a public class or a public static nested class");
     }
     final var noPublicConstructor =
-        ElementFilter.constructorsIn(type.getEnclosedElements()).stream()
-            .filter(e -> e.getParameters().isEmpty())
-            .filter(e -> e.getModifiers().contains(Modifier.PUBLIC))
-            .findAny()
-            .isEmpty();
+      ElementFilter.constructorsIn(type.getEnclosedElements()).stream()
+        .filter(e -> e.getParameters().isEmpty())
+        .filter(e -> e.getModifiers().contains(Modifier.PUBLIC))
+        .findAny()
+        .isEmpty();
     if (noPublicConstructor) {
       logError(type, "A Service Provider must have a public no-args constructor");
     }
@@ -273,11 +269,8 @@ public class ServiceProcessor extends AbstractProcessor {
   private List<TypeElement> getServiceInterfaces(TypeElement type) {
     final List<TypeElement> typeElementList = new ArrayList<>();
     final var spis = ServiceProviderPrism.getInstanceOn(type).value();
-
     final var interfaces = type.getInterfaces();
-    final boolean hasBaseClass =
-        type.getSuperclass().getKind() != TypeKind.NONE && !isObject(type.getSuperclass());
-
+    final boolean hasBaseClass = type.getSuperclass().getKind() != TypeKind.NONE && !isObject(type.getSuperclass());
     final boolean hasInterfaces = !interfaces.isEmpty();
 
     if (spis.isEmpty()) {
@@ -340,27 +333,27 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private boolean isAssignable2Interface(Element type, TypeMirror superType) {
     return Optional.ofNullable(type).stream()
-        .flatMap(this::superTypes)
-        .anyMatch(superType.toString()::equals);
+      .flatMap(this::superTypes)
+      .anyMatch(superType.toString()::equals);
   }
 
   private Stream<String> superTypes(Element element) {
     return types.directSupertypes(element.asType()).stream()
-        .filter(type -> !type.toString().contains("java.lang.Object"))
-        .map(superType -> (TypeElement) types.asElement(superType))
-        .flatMap(e -> Stream.concat(superTypes(e), Stream.of(e)))
-        .map(Object::toString);
+      .filter(type -> !type.toString().contains("java.lang.Object"))
+      .map(superType -> (TypeElement) types.asElement(superType))
+      .flatMap(e -> Stream.concat(superTypes(e), Stream.of(e)))
+      .map(Object::toString);
   }
 
   ModuleElement findModule(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     if (this.moduleElement == null) {
       moduleElement =
-          annotations.stream()
-              .map(roundEnv::getElementsAnnotatedWith)
-              .flatMap(Collection::stream)
-              .findAny()
-              .map(this::getModuleElement)
-              .orElseThrow();
+        annotations.stream()
+          .map(roundEnv::getElementsAnnotatedWith)
+          .flatMap(Collection::stream)
+          .findAny()
+          .map(this::getModuleElement)
+          .orElseThrow();
     }
     return moduleElement;
   }
@@ -376,8 +369,8 @@ public class ServiceProcessor extends AbstractProcessor {
     if (moduleElement != null && !moduleElement.isUnnamed()) {
       // Keep track of missing services and their impls
       var moduleReader = new ModuleReader(services);
-      try (var reader = getModuleInfoReader()) {
-        moduleReader.read(reader, moduleElement);
+      APContext.moduleInfoReader().ifPresent(reader -> {
+        moduleReader.read(reader);
         if (moduleReader.staticWarning()) {
           logError(moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
         }
@@ -387,32 +380,26 @@ public class ServiceProcessor extends AbstractProcessor {
         if (!buildPluginAvailable() && !APContext.isTestCompilation()) {
           logModuleError(moduleReader);
         }
-
-      } catch (Exception e) {
-        // can't read module, not a critical issue
-      }
+      });
     }
   }
 
   private void logModuleError(ModuleReader moduleReader) {
-    moduleReader
-        .missing()
-        .forEach(
-            (k, v) -> {
-              if (!v.isEmpty()) {
-                var contract =
-                    services.keySet().stream()
-                        .filter(s -> s.replace('$', '.').equals(k.replace('$', '.')))
-                        .findAny()
-                        .orElseThrow();
-                var missingImpls =
-                    services.get(contract).stream()
-                        .map(Utils::fqnFromBinaryType)
-                        .collect(joining(", "));
+    moduleReader.missing().forEach((k, v) -> {
+      if (!v.isEmpty()) {
+        var contract =
+          services.keySet().stream()
+            .filter(s -> s.replace('$', '.').equals(k.replace('$', '.')))
+            .findAny()
+            .orElseThrow();
+        var missingImpls =
+          services.get(contract).stream()
+            .map(Utils::fqnFromBinaryType)
+            .collect(joining(", "));
 
-                logError(moduleElement, "Missing `provides %s with %s;`", Utils.fqnFromBinaryType(contract), missingImpls);
-              }
-            });
+        logError(moduleElement, "Missing `provides %s with %s;`", Utils.fqnFromBinaryType(contract), missingImpls);
+      }
+    });
   }
 
   private static boolean buildPluginAvailable() {

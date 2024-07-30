@@ -1,14 +1,10 @@
 package io.avaje.spi.internal;
 
-import static java.util.stream.Collectors.toSet;
-
-import java.io.BufferedReader;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import javax.lang.model.element.ModuleElement;
+import static java.util.stream.Collectors.toSet;
 
 final class ModuleReader {
 
@@ -28,8 +24,7 @@ final class ModuleReader {
     return k.replace('$', '.');
   }
 
-  void read(BufferedReader reader, ModuleElement element) throws IOException {
-    var module = new ModuleInfoReader(element, reader);
+  void read(ModuleInfoReader module) {
     for (var require : module.requires()) {
       var dep = require.getDependency();
       if (!require.isStatic() && dep.getQualifiedName().contentEquals("io.avaje.spi")) {
