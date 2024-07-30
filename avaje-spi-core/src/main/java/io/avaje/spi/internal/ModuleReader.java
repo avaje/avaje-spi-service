@@ -1,14 +1,10 @@
 package io.avaje.spi.internal;
 
-import static java.util.stream.Collectors.toSet;
-
-import java.io.BufferedReader;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import javax.lang.model.element.ModuleElement;
+import static java.util.stream.Collectors.toSet;
 
 final class ModuleReader {
 
