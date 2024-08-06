@@ -84,6 +84,17 @@ public class ServiceProcessor extends AbstractProcessor {
           "avaje-jsonb-generator",
           "io.avaje.jsonb.spi.JsonbExtension");
 
+  private static final Map<String, String> VALID_AVAJE_SPI =
+      Map.of(
+          "io.avaje.config",
+          "io.avaje.config.ConfigExtension",
+          "io.avaje.inject",
+          "io.avaje.inject.spi.InjectExtension",
+          "io.avaje.jsonb",
+          "io.avaje.jsonb.spi.JsonbExtension",
+          "io.avaje.validation",
+          "io.avaje.validation.spi.ValidationExtension");
+
   private static final Set<String> EXEMPT_SERVICES = new HashSet<>();
 
   private final Map<String, Set<String>> services = new ConcurrentHashMap<>();
@@ -142,9 +153,30 @@ public class ServiceProcessor extends AbstractProcessor {
     if (roundEnv.processingOver()) {
       loadExemptService();
       write();
+      validateCorrectAvajeServices();
       validateModule();
     }
     return false;
+  }
+
+  private void validateCorrectAvajeServices() {
+    services.entrySet().stream()
+        .filter(
+            e -> e.getKey().startsWith("io.avaje") && !VALID_AVAJE_SPI.containsValue(e.getKey()))
+        .forEach(
+            e -> {
+              var key = e.getKey();
+
+              VALID_AVAJE_SPI.entrySet().stream()
+                  .filter(spi -> key.contains(spi.getKey()))
+                  .findAny()
+                  .ifPresent(
+                      spi ->
+                          logError(
+                              "Invalid spi entry META-INF/services/%s."
+                                  + "\n All classes of this type should be registered in META-INF/services/%s",
+                              key, spi.getValue()));
+            });
   }
 
   private void loadExemptService() {
