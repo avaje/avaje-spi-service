@@ -161,22 +161,18 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private void validateCorrectAvajeServices() {
     services.entrySet().stream()
-        .filter(
-            e -> e.getKey().startsWith("io.avaje") && !VALID_AVAJE_SPI.containsValue(e.getKey()))
-        .forEach(
-            e -> {
-              var key = e.getKey();
-
-              VALID_AVAJE_SPI.entrySet().stream()
-                  .filter(spi -> key.contains(spi.getKey()))
-                  .findAny()
-                  .ifPresent(
-                      spi ->
-                          logError(
-                              "Invalid spi entry META-INF/services/%s."
-                                  + "\n All classes of this type should be registered in META-INF/services/%s",
-                              key, spi.getValue()));
-            });
+      .filter(e -> e.getKey().startsWith("io.avaje") && !VALID_AVAJE_SPI.containsValue(e.getKey()))
+      .forEach(e -> {
+        var key = e.getKey();
+        VALID_AVAJE_SPI.entrySet().stream()
+          .filter(spi -> key.contains(spi.getKey()))
+          .findAny()
+          .ifPresent(spi ->
+            logError(
+              "Invalid spi entry META-INF/services/%s."
+                + "\n All classes of this type should be registered in META-INF/services/%s",
+              key, spi.getValue()));
+      });
   }
 
   private void loadExemptService() {
