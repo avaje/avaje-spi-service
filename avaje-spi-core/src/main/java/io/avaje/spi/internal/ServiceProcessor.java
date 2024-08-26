@@ -70,6 +70,8 @@ import io.avaje.prism.GenerateUtils;
 })
 public class ServiceProcessor extends AbstractProcessor {
 
+  private static final String INJECT_EXTENSION = "io.avaje.inject.spi.InjectExtension";
+
   @Override
   public SourceVersion getSupportedSourceVersion() {
     return SourceVersion.latestSupported();
@@ -78,7 +80,7 @@ public class ServiceProcessor extends AbstractProcessor {
   private static final Map<String, String> EXEMPT_SERVICES_MAP =
       Map.of(
           "avaje-inject-generator",
-          "io.avaje.inject.spi.InjectExtension",
+          INJECT_EXTENSION,
           "avaje-validator-generator",
           "io.avaje.validation.spi.ValidationExtension",
           "avaje-jsonb-generator",
@@ -88,8 +90,14 @@ public class ServiceProcessor extends AbstractProcessor {
       Map.of(
           "io.avaje.config",
           "io.avaje.config.ConfigExtension",
-          "io.avaje.inject",
-          "io.avaje.inject.spi.InjectExtension",
+          "io.avaje.inject.spi.AvajeModule",
+          INJECT_EXTENSION,
+          "io.avaje.inject.spi.InjectPlugin",
+          INJECT_EXTENSION,
+          "io.avaje.inject.spi.ModuleOrdering",
+          INJECT_EXTENSION,
+          "io.avaje.inject.spi.ConfigPropertyPlugin",
+          INJECT_EXTENSION,
           "io.avaje.jsonb",
           "io.avaje.jsonb.spi.JsonbExtension",
           "io.avaje.validation",
