@@ -38,15 +38,15 @@ final class ModuleReader {
       }
     }
     module.provides().forEach(p -> {
+
       final var contract = replace$(p.service());
+
       if (!missingServicesMap.containsKey(contract)) {
         return;
       }
       var impls = p.implementations();
       var missing = missingServicesMap.get(contract);
-      if (missing.size() != impls.size()) {
-        return;
-      }
+
       impls.stream().map(ModuleReader::replace$).forEach(missing::remove);
     });
   }
