@@ -1,6 +1,7 @@
 package io.avaje.spi.internal;
 
 import static io.avaje.spi.internal.APContext.*;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 
 import java.io.BufferedReader;
@@ -422,6 +423,7 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private void logModuleError(ModuleReader moduleReader) {
     moduleReader.missing().forEach((k, v) -> {
+      v.removeIf(this::isNotSameModule);
       if (!v.isEmpty()) {
         var contract =
           services.keySet().stream()
@@ -430,12 +432,22 @@ public class ServiceProcessor extends AbstractProcessor {
             .orElseThrow();
         var missingImpls =
           services.get(contract).stream()
+            .filter(not(this::isNotSameModule))
             .map(Utils::fqnFromBinaryType)
             .collect(joining(", "));
 
         logError(moduleElement, "Missing `provides %s with %s;`", Utils.fqnFromBinaryType(contract), missingImpls);
       }
     });
+  }
+
+  private boolean isNotSameModule(String type) {
+    var element = typeElement(type);
+    return element == null
+        || !elements
+            .getModuleOf(element)
+            .getSimpleName()
+            .contentEquals(moduleElement.getSimpleName());
   }
 
   private static boolean buildPluginAvailable() {
