@@ -13,7 +13,7 @@ final class PomPluginWriter {
           + "      <plugin>\n"
           + "        <groupId>io.avaje</groupId>\n"
           + "        <artifactId>avaje-provides-maven-plugin</artifactId>\n"
-          + "        <version>2.0</version>\n"
+          + "        <version>%s</version>\n"
           + "        <executions>\n"
           + "          <execution>\n"
           + "            <!-- Will transform compiled module-info to add missing spi provides -->"
