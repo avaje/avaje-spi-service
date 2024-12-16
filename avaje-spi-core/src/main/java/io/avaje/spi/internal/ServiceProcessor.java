@@ -146,6 +146,7 @@ public class ServiceProcessor extends AbstractProcessor {
         addition.append("avaje-spi-core");
       }
       Files.writeString(file, addition.toString(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+      PomPluginWriter.addPlugin2Pom();
     } catch (IOException e) {
       // not an issue worth failing over
     }
