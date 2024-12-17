@@ -31,6 +31,7 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.SupportedOptions;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -53,6 +54,7 @@ import io.avaje.prism.GenerateUtils;
 @GenerateAPContext
 @SuppressWarnings("exports")
 @GenerateModuleInfoReader
+@SupportedOptions("buildPlugin")
 @SupportedAnnotationTypes({
   ServiceProviderPrism.PRISM_TYPE,
   // makes the processor automatically run if any of the other avaje processors are active
@@ -64,6 +66,7 @@ import io.avaje.prism.GenerateUtils;
   "io.avaje.recordbuilder.Generated",
   "io.avaje.prism.GenerateAPContext",
   "io.avaje.validation.spi.Generated",
+  "io.ebean.typequery.Generated",
   "javax.annotation.processing.Generated",
   "javax.annotation.processing.SupportedAnnotationTypes",
   "javax.annotation.processing.SupportedOptions",
@@ -143,6 +146,7 @@ public class ServiceProcessor extends AbstractProcessor {
         addition.append("avaje-spi-core");
       }
       Files.writeString(file, addition.toString(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+      PomPluginWriter.addPlugin2Pom();
     } catch (IOException e) {
       // not an issue worth failing over
     }
