@@ -7,7 +7,7 @@
 	</parent>
 	<groupId>io.avaje</groupId>
 	<artifactId>avaje-spi-parent</artifactId>
-	<version>2.9</version>
+	<version>2.10-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>avaje-spi-parent</name>
 	<description>Service configuration generator</description>
@@ -19,7 +19,7 @@
 	<properties>
 	  <nexus.staging.autoReleaseAfterClose>true</nexus.staging.autoReleaseAfterClose>
 	  <surefire.useModulePath>false</surefire.useModulePath>
-    <project.build.outputTimestamp>2024-12-17T22:43:38Z</project.build.outputTimestamp>
+    <project.build.outputTimestamp>2024-12-17T22:45:14Z</project.build.outputTimestamp>
 	</properties>
 
 	<modules>
