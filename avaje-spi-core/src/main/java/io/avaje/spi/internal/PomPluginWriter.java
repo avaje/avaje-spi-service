@@ -49,7 +49,7 @@ final class PomPluginWriter {
     if (pluginsIndex != -1) {
       builder.insert(
           pluginsIndex,
-          String.format(PLUGIN, "2.0"));
+          String.format(PLUGIN, "2.1"));
 
       Files.writeString(
           pomPath, builder.toString(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
