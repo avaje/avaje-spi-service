@@ -1,5 +1,5 @@
 import io.avaje.spi.test.SPIInterface;
-import io.avaje.spi.test.CommonClass2;
+import io.avaje.spi.test.SPIInterface.DefaultSPIInterface;
 
 module io.avaje.spi.blackbox {
   requires io.avaje.inject;
@@ -12,7 +12,7 @@ module io.avaje.spi.blackbox {
   		io.avaje.spi. test.CommonClass2,
   		io.avaje.spi. test.CommonClass3
   		, io . avaje . spi . test . ManualSPI,
-  		 io.avaje.spi.test.SPIInterface.DefaultSPIInterface
+  		 DefaultSPIInterface
        ;
   exports io.avaje.spi.test;
 
