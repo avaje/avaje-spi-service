@@ -386,7 +386,7 @@ public class ServiceProcessor extends AbstractProcessor {
       .map(Object::toString);
   }
 
-  ModuleElement findModule(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+  void findModule(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     if (this.moduleElement == null) {
       moduleElement =
         annotations.stream()
@@ -394,9 +394,10 @@ public class ServiceProcessor extends AbstractProcessor {
           .flatMap(Collection::stream)
           .findAny()
           .map(this::getModuleElement)
-          .orElseThrow();
+          .orElseThrow(() -> new IllegalStateException("Maven pom is missing maven.compiler.release. " +
+            "Look to add <maven.compiler.release>21</maven.compiler.release> into the properties section." +
+            "Refer to https://github.com/avaje/avaje-spi-service/wiki/Compile-Error"));
     }
-    return moduleElement;
   }
 
   ModuleElement getModuleElement(Element e) {
