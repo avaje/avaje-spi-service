@@ -78,7 +78,7 @@ public class ServiceProcessor extends AbstractProcessor {
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
-    return SourceVersion.latestSupported();
+    return SourceVersion.RELEASE_11;
   }
 
   private static final Map<String, String> EXEMPT_SERVICES_MAP =
