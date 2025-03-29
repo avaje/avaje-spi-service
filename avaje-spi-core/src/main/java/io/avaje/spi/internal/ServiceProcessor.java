@@ -154,6 +154,9 @@ public class ServiceProcessor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> tes, RoundEnvironment roundEnv) {
+    if (roundEnv.errorRaised()) {
+      return false;
+    }
     final var annotated =
       Optional.ofNullable(typeElement(ServiceProviderPrism.PRISM_TYPE))
         .map(roundEnv::getElementsAnnotatedWith)
