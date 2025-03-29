@@ -389,7 +389,7 @@ public class ServiceProcessor extends AbstractProcessor {
       .map(Object::toString);
   }
 
-  ModuleElement findModule(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+  void findModule(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     if (this.moduleElement == null) {
       moduleElement =
         annotations.stream()
@@ -397,9 +397,12 @@ public class ServiceProcessor extends AbstractProcessor {
           .flatMap(Collection::stream)
           .findAny()
           .map(this::getModuleElement)
-          .orElseThrow();
+          .orElseThrow(() -> {
+            int javaVersion = processingEnv.getSourceVersion().ordinal();
+            String msg = String.format("Java release version is %s, please set maven.compiler.release to 11 or higher", javaVersion);
+            return new IllegalStateException(msg);
+          });
     }
-    return moduleElement;
   }
 
   ModuleElement getModuleElement(Element e) {
