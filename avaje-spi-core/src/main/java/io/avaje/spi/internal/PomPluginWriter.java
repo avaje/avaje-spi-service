@@ -16,6 +16,7 @@ final class PomPluginWriter {
           + "        <version>%s</version>\n"
           + "        <executions>\n"
           + "          <execution>\n"
+          + "            <?m2e execute onIncremental?>\n"
           + "            <!-- Will transform compiled module-info to add missing spi provides -->"
           + "            <goals>\n"
           + "              <goal>disable-apt-validation</goal>\n"
