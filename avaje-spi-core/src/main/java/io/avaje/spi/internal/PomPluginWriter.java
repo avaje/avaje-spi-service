@@ -13,7 +13,7 @@ final class PomPluginWriter {
           + "      <plugin>\n"
           + "        <groupId>io.avaje</groupId>\n"
           + "        <artifactId>avaje-provides-maven-plugin</artifactId>\n"
-          + "        <version>%s</version>\n"
+          + "        <version>2.2</version>\n"
           + "        <executions>\n"
           + "          <execution>\n"
           + "            <?m2e execute onIncremental?>\n"
@@ -48,9 +48,7 @@ final class PomPluginWriter {
     var pluginsIndex = pomContent.indexOf("</plugins>");
     var builder = new StringBuilder(pomContent);
     if (pluginsIndex != -1) {
-      builder.insert(
-          pluginsIndex,
-          String.format(PLUGIN, "2.1"));
+      builder.insert(pluginsIndex, PLUGIN);
 
       Files.writeString(
           pomPath, builder.toString(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
