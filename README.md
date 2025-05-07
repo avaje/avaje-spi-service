@@ -7,6 +7,8 @@ Uses Annotation processing to automatically add `META-INF/services` entries for 
 
 ## Usage
 ### 1. Add dependency:
+
+#### Maven:
 ```xml
 <dependency>
   <groupId>io.avaje</groupId>
@@ -15,6 +17,12 @@ Uses Annotation processing to automatically add `META-INF/services` entries for 
   <optional>true</optional>
   <scope>provided</scope>
 </dependency>
+```
+
+#### Gradle:
+```kotlin
+compileOnly("io.avaje:avaje-spi-service:${spi.version}")
+annotationProcessor("io.avaje:avaje-spi-service:${spi.version}")
 ```
 
 When working with Java modules you need to add the annotation module as a static dependency.
