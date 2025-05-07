@@ -13,7 +13,7 @@ final class PomPluginWriter {
           + "      <plugin>\n"
           + "        <groupId>io.avaje</groupId>\n"
           + "        <artifactId>avaje-provides-maven-plugin</artifactId>\n"
-          + "        <version>2.2</version>\n"
+          + "        <version>2.3</version>\n"
           + "        <executions>\n"
           + "          <execution>\n"
           + "            <?m2e execute onIncremental?>\n"
