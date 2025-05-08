@@ -2,7 +2,8 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/avaje/avaje-spi-service/blob/master/LICENSE)
 [![Maven Central](https://img.shields.io/maven-central/v/io.avaje/avaje-spi-service.svg?label=Maven%20Central)](https://mvnrepository.com/artifact/io.avaje/avaje-spi-service)
 [![Discord](https://img.shields.io/discord/1074074312421683250?color=%237289da&label=discord)](https://discord.gg/Qcqf9R27BR)
-# avaje-spi-service
+
+# [Avaje Spi Service](https://avaje.io/spi)
 Uses Annotation processing to automatically add `META-INF/services` entries for classes and validate `module-info.java` files.
 
 ## Usage
