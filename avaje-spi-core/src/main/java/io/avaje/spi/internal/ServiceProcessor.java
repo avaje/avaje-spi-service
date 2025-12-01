@@ -86,7 +86,9 @@ public class ServiceProcessor extends AbstractProcessor {
           "avaje-validator-generator",
           "io.avaje.validation.spi.ValidationExtension",
           "avaje-jsonb-generator",
-          "io.avaje.jsonb.spi.JsonbExtension");
+          "io.avaje.jsonb.spi.JsonbExtension",
+          "avaje-http-client-generator",
+          "io.avaje.http.client.HttpClient.GeneratedComponent");
 
   private static final Map<String, String> VALID_AVAJE_SPI =
       Map.of(
