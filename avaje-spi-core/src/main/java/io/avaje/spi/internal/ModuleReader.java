@@ -17,11 +17,7 @@ final class ModuleReader {
   }
 
   private void add(String k, Set<String> v) {
-    missingServicesMap.put(replace$(k), v.stream().map(ModuleReader::replace$).collect(toSet()));
-  }
-
-  private static String replace$(String k) {
-    return k.replace('$', '.');
+    missingServicesMap.put(k, v.stream().collect(toSet()));
   }
 
   void read(ModuleInfoReader module) {
@@ -37,18 +33,23 @@ final class ModuleReader {
         break;
       }
     }
-    module.provides().forEach(p -> {
-
-      final var contract = replace$(p.service());
-
-      if (!missingServicesMap.containsKey(contract)) {
-        return;
-      }
-      var impls = p.implementations();
-      var missing = missingServicesMap.get(contract);
-
-      impls.stream().map(ModuleReader::replace$).forEach(missing::remove);
-    });
+    module
+        .provides()
+        .forEach(
+            p -> {
+              final var contract = p.getService().getQualifiedName().toString();
+              if (!missingServicesMap.containsKey(contract)) {
+                return;
+              }
+              var impls = p.getImplementations();
+              var missing = missingServicesMap.get(contract);
+              impls.stream()
+                  .forEach(
+                      x -> {
+                        missing.remove(x.getQualifiedName().toString());
+                        missing.remove(APContext.elements().getBinaryName(x).toString());
+                      });
+            });
   }
 
   boolean staticWarning() {

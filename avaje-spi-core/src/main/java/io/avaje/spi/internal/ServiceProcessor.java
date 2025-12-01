@@ -47,13 +47,11 @@ import javax.lang.model.util.Types;
 import javax.tools.StandardLocation;
 
 import io.avaje.prism.GenerateAPContext;
-import io.avaje.prism.GenerateModuleInfoReader;
 import io.avaje.prism.GenerateUtils;
 
 @GenerateUtils
 @GenerateAPContext
 @SuppressWarnings("exports")
-@GenerateModuleInfoReader
 @SupportedOptions("buildPlugin")
 @SupportedAnnotationTypes({
   ServiceProviderPrism.PRISM_TYPE,
