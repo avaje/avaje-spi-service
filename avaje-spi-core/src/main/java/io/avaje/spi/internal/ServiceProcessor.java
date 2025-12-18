@@ -37,6 +37,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
@@ -116,6 +117,8 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private Types types;
 
+  private ModuleElement moduleElement;
+
   private Path servicesDirectory;
 
   @Override
@@ -164,6 +167,8 @@ public class ServiceProcessor extends AbstractProcessor {
 
     // discover services from the current compilation sources
     processSpis(annotated);
+
+    findModule(tes, roundEnv);
     if (roundEnv.processingOver()) {
       loadExemptService();
       write();
@@ -224,10 +229,10 @@ public class ServiceProcessor extends AbstractProcessor {
         logError(type, "Service Providers must implement an SPI interface, or provide the SPI via a public static provider() method.");
       }
       for (final TypeElement contract : contracts) {
-        final String cn = contract.getQualifiedName().toString();
+        final String cn = elements.getBinaryName(contract).toString();
         final Set<String> v = services.computeIfAbsent(cn, k -> new TreeSet<>());
 
-        v.add(type.getQualifiedName().toString());
+        v.add(elements.getBinaryName(type).toString());
       }
     }
   }
@@ -442,24 +447,47 @@ public class ServiceProcessor extends AbstractProcessor {
       .map(Object::toString);
   }
 
+  void findModule(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    if (this.moduleElement == null) {
+      moduleElement =
+        annotations.stream()
+          .map(roundEnv::getElementsAnnotatedWith)
+          .flatMap(Collection::stream)
+          .findAny()
+          .map(this::getModuleElement)
+          .orElseThrow(() -> {
+            int javaVersion = processingEnv.getSourceVersion().ordinal();
+            String msg = String.format("Java release version is %s, please set maven.compiler.release to 11 or higher", javaVersion);
+            return new IllegalStateException(msg);
+          });
+    }
+  }
+
+  ModuleElement getModuleElement(Element e) {
+    if (e == null || e instanceof ModuleElement) {
+      return (ModuleElement) e;
+    }
+    return getModuleElement(e.getEnclosingElement());
+  }
+
   void validateModule() {
+    if (moduleElement != null && !moduleElement.isUnnamed()) {
       // Keep track of missing services and their impls
       var moduleReader = new ModuleReader(services);
       APContext.moduleInfoReader().ifPresent(reader -> {
         moduleReader.read(reader);
-        var module = APContext.getProjectModuleElement();
         if (moduleReader.staticWarning()) {
-          logError(module, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
+          logError(moduleElement, "`requires io.avaje.spi` should be `requires static io.avaje.spi;`");
         }
         if (moduleReader.coreWarning()) {
-          logWarn(module, "io.avaje.spi.core should not be used directly");
+          logWarn(moduleElement, "io.avaje.spi.core should not be used directly");
         }
         if (!buildPluginAvailable() && !APContext.isTestCompilation()) {
           logModuleError(moduleReader);
         }
       });
     }
-
+  }
 
   private void logModuleError(ModuleReader moduleReader) {
     moduleReader.missing().forEach((k, v) -> {
@@ -467,7 +495,7 @@ public class ServiceProcessor extends AbstractProcessor {
       if (!v.isEmpty()) {
         var contract =
           services.keySet().stream()
-            .filter(k::equals)
+            .filter(s -> s.replace('$', '.').equals(k.replace('$', '.')))
             .findAny()
             .orElseThrow();
         var missingImpls =
@@ -476,7 +504,7 @@ public class ServiceProcessor extends AbstractProcessor {
             .map(Utils::fqnFromBinaryType)
             .collect(joining(", "));
 
-        logError(APContext.getProjectModuleElement(), "Missing `provides %s with %s;`", contract, missingImpls);
+        logError(moduleElement, "Missing `provides %s with %s;`", Utils.fqnFromBinaryType(contract), missingImpls);
       }
     });
   }
@@ -487,7 +515,7 @@ public class ServiceProcessor extends AbstractProcessor {
         || !elements
             .getModuleOf(element)
             .getSimpleName()
-            .contentEquals(APContext.getProjectModuleElement().getSimpleName());
+            .contentEquals(moduleElement.getSimpleName());
   }
 
   private static boolean buildPluginAvailable() {
