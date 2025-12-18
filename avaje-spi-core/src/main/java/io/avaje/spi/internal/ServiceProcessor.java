@@ -110,16 +110,12 @@ public class ServiceProcessor extends AbstractProcessor {
           "io.avaje.validation.spi.ValidationExtension");
 
   private static final Set<String> EXEMPT_SERVICES = new HashSet<>();
-
   private final Map<String, Set<String>> services = new ConcurrentHashMap<>();
-
   private Elements elements;
-
   private Types types;
-
   private ModuleElement moduleElement;
-
   private Path servicesDirectory;
+  private static final Set<String> PROCESSED = new HashSet<>();
 
   @Override
   public synchronized void init(ProcessingEnvironment env) {
@@ -206,6 +202,8 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private void processSpis(final Collection<? extends Element> annotated) {
     for (final var type : ElementFilter.typesIn(annotated)) {
+
+      PROCESSED.add(elements.getBinaryName(type).toString());
       Element methodSpi =
           ElementFilter.methodsIn(type.getEnclosedElements()).stream()
               .filter(
@@ -511,11 +509,12 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private boolean isNotSameModule(String type) {
     var element = typeElement(Utils.fqnFromBinaryType(type));
-    return element == null
-        || !elements
-            .getModuleOf(element)
-            .getSimpleName()
-            .contentEquals(moduleElement.getSimpleName());
+    return !PROCESSED.contains(type)
+        && (element == null
+            || !elements
+                .getModuleOf(element)
+                .getSimpleName()
+                .contentEquals(moduleElement.getSimpleName()));
   }
 
   private static boolean buildPluginAvailable() {
