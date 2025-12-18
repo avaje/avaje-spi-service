@@ -510,7 +510,7 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private boolean isNotSameModule(String type) {
-    var element = typeElement(type);
+    var element = typeElement(Utils.fqnFromBinaryType(type));
     return element == null
         || !elements
             .getModuleOf(element)
