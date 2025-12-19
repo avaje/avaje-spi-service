@@ -10,6 +10,7 @@ module io.avaje.spi.blackbox {
   io.avaje.spi.test.CommonClass3,
   io.avaje.spi.test.CommonClass4.CommonClass4SPI,
   io.avaje.spi.test.CommonClass4.CommonClass5SPI,
+  io.avaje.spi.test.CommonClass5,
   io.avaje.spi.test.ManualSPI,
   io.avaje.spi.test.SPIInterface.DefaultSPIInterface;
 
