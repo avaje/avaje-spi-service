@@ -1,97 +1,60 @@
 name: Close Milestone on Release
 
 on:
-  # 1. Automatic Trigger: Runs when a new release is published
   release:
     types: [published]
-
-  # 2. Manual Trigger: Allows running the workflow on demand from the GitHub UI
   workflow_dispatch:
     inputs:
       milestone_tag:
-        description: 'Specify Release Tag (e.g., v1.2.3) to close its corresponding Milestone. Leave empty to use the LATEST Release.'
+        description: 'Specify Release Tag (e.g., v1.2.3). Leave empty for LATEST.'
         required: false
         default: ''
 
 jobs:
   close_milestone:
     runs-on: ubuntu-latest
+    # Grant permissions to write to issues/milestones
+    permissions:
+      issues: write
+      contents: read
 
     steps:
-      - name: Determine Target Release Tag (Automatic vs. Manual)
+      - name: Determine Target Release Tag
         id: determine_tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          MILESTONE_TITLE=""
-
           if [[ "${{ github.event_name }}" == "release" ]]; then
-            # Use the tag from the triggered release event
             RELEASE_TAG="${{ github.event.release.tag_name }}"
-            echo "Triggered by release. Using tag: $RELEASE_TAG"
-
           elif [[ -n "${{ github.event.inputs.milestone_tag }}" ]]; then
-            # Use the tag provided in the manual input
             RELEASE_TAG="${{ github.event.inputs.milestone_tag }}"
-            echo "Triggered manually with input. Using tag: $RELEASE_TAG"
-
           else
-            # Triggered manually without input, fetch the latest published release
-            echo "Triggered manually without input. Fetching latest release..."
-            LATEST_TAG=$(gh api \
-              -H "Accept: application/vnd.github+json" \
-              /repos/${{ github.repository }}/releases/latest \
-              --jq '.tag_name')
-
-            if [ -z "$LATEST_TAG" ]; then
-              echo "🔴 Could not find the latest published release tag. Exiting."
-              exit 1
-            fi
-            RELEASE_TAG="$LATEST_TAG"
-            echo "Found latest release tag: $RELEASE_TAG"
+            # Fetch the latest published release tag via CLI
+            RELEASE_TAG=$(gh api repos/${{ github.repository }}/releases/latest --jq '.tag_name')
           fi
 
-          # Remove the leading 'v' if present to match typical milestone naming
+          # Strip 'v' prefix for milestone matching
           MILESTONE_TITLE="${RELEASE_TAG#v}"
-
-          # Set the output variable for the next step
           echo "MILESTONE_TITLE=$MILESTONE_TITLE" >> $GITHUB_OUTPUT
-          echo "Final Milestone Title: $MILESTONE_TITLE"
-        env:
-          # Use the GitHub CLI to interact with the API (for fetching the latest release)
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "Targeting Milestone: $MILESTONE_TITLE"
 
       - name: Close Corresponding Milestone
-        # Use the GitHub CLI to search for and close the milestone
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-            MILESTONE_TITLE="${{ steps.determine_tag.outputs.MILESTONE_TITLE }}"
+          TITLE="${{ steps.determine_tag.outputs.MILESTONE_TITLE }}"
 
-            if [ -z "$MILESTONE_TITLE" ]; then
-              echo "🛑 Milestone title is empty. Cannot proceed."
-              exit 1
-            fi
+          # 1. Get Milestone Number by Title
+          MILESTONE_NUMBER=$(gh api repos/${{ github.repository }}/milestones \
+            -f state='open' \
+            --jq ".[] | select(.title==\"$TITLE\") | .number")
 
-            echo "Searching for open milestone with title: $MILESTONE_TITLE"
-
-            # 1. Search for an open milestone with a title matching the release tag
-            MILESTONE_ID=$(gh api \
-              -H "Accept: application/vnd.github+json" \
-              /repos/${{ github.repository }}/milestones \
-              -f state='open' \
-              -f per_page='100' \
-              --jq '.[] | select(.title=="'"$MILESTONE_TITLE"'") | .number' \
-              | head -n 1)
-
-            # 2. Check if a milestone was found
-            if [ -z "$MILESTONE_ID" ]; then
-              echo "✅ No open milestone found with title: $MILESTONE_TITLE. Skipping closure."
-            else
-              echo "🎉 Found milestone ID: $MILESTONE_ID. Closing it now..."
-              # 3. Close the found milestone
-              gh api \
-                --method PATCH \
-                -H "Accept: application/vnd.github+json" \
-                /repos/${{ github.repository }}/milestones/$MILESTONE_ID \
-                -f state='closed'
-              echo "✨ Milestone $MILESTONE_ID closed successfully!"
-            fi
+          # 2. Close if found
+          if [ -z "$MILESTONE_NUMBER" ]; then
+            echo "No open milestone found with title '$TITLE'. Skipping."
+          else
+            echo "Closing milestone #$MILESTONE_NUMBER..."
+            gh api --method PATCH repos/${{ github.repository }}/milestones/$MILESTONE_NUMBER \
+              -f state='closed'
+            echo "Successfully closed milestone '$TITLE'."
+          fi
