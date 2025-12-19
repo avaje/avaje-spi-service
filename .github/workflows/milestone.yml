@@ -41,8 +41,8 @@ jobs:
       - name: Close Corresponding Milestone
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: ${{ steps.determine_tag.outputs.MILESTONE_TITLE }}
         run: |
-          TITLE="${{ steps.determine_tag.outputs.MILESTONE_TITLE }}"
 
           # 1. Get Milestone Number by Title
           MILESTONE_NUMBER=$(gh api repos/${{ github.repository }}/milestones \
