@@ -1,5 +1,4 @@
 name: Close Milestone on Release
-
 on:
   release:
     types: [published]
@@ -9,15 +8,12 @@ on:
         description: 'Specify Release Tag (e.g., v1.2.3). Leave empty for LATEST.'
         required: false
         default: ''
-
 jobs:
   close_milestone:
     runs-on: ubuntu-latest
-    # Grant permissions to write to issues/milestones
     permissions:
       issues: write
       contents: read
-
     steps:
       - name: Determine Target Release Tag
         id: determine_tag
@@ -29,32 +25,32 @@ jobs:
           elif [[ -n "${{ github.event.inputs.milestone_tag }}" ]]; then
             RELEASE_TAG="${{ github.event.inputs.milestone_tag }}"
           else
-            # Fetch the latest published release tag via CLI
             RELEASE_TAG=$(gh api repos/${{ github.repository }}/releases/latest --jq '.tag_name')
           fi
-
-          # Strip 'v' prefix for milestone matching
+          # Strip 'v' prefix
           MILESTONE_TITLE="${RELEASE_TAG#v}"
           echo "MILESTONE_TITLE=$MILESTONE_TITLE" >> $GITHUB_OUTPUT
           echo "Targeting Milestone: $MILESTONE_TITLE"
-
       - name: Close Corresponding Milestone
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TITLE: ${{ steps.determine_tag.outputs.MILESTONE_TITLE }}
         run: |
-
-          # 1. Get Milestone Number by Title
+          TITLE="${{ steps.determine_tag.outputs.MILESTONE_TITLE }}"
+          
+          # Find the milestone by title
           MILESTONE_NUMBER=$(gh api repos/${{ github.repository }}/milestones \
-            -f state='open' \
-            --jq ".[] | select(.title==\"$TITLE\") | .number")
-
-          # 2. Close if found
-          if [ -z "$MILESTONE_NUMBER" ]; then
-            echo "No open milestone found with title '$TITLE'. Skipping."
-          else
-            echo "Closing milestone #$MILESTONE_NUMBER..."
-            gh api --method PATCH repos/${{ github.repository }}/milestones/$MILESTONE_NUMBER \
-              -f state='closed'
-            echo "Successfully closed milestone '$TITLE'."
+            --jq ".[] | select(.title == \"$TITLE\") | .number")
+          
+          if [[ -z "$MILESTONE_NUMBER" ]]; then
+            echo "❌ Milestone '$TITLE' not found"
+            exit 1
           fi
+          
+          echo "Found milestone #$MILESTONE_NUMBER with title '$TITLE'"
+          
+          # Close the milestone
+          gh api repos/${{ github.repository }}/milestones/$MILESTONE_NUMBER \
+            -X PATCH \
+            -f state=closed
+          
+          echo "✅ Successfully closed milestone '$TITLE'"
