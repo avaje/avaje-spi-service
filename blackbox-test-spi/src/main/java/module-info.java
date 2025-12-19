@@ -19,4 +19,9 @@ module io.avaje.spi.blackbox {
   provides io.avaje.spi.test.SPIInterface.NestedSPIInterface with io.avaje.spi.test.CommonClass.CommonClassNested$SPIInterface, io.avaje.spi.test.CommonClass2, io.avaje.spi.test.SPIInterface.NestedSPIInterface.DefaultNested$$SPIInterface;
 
   provides io.avaje.inject.spi.InjectExtension with io.avaje.spi.test.InjectProvider;
+
+  uses io.avaje.spi.test.CommonClass;
+  uses io.avaje.spi.test.SPIInterface;
+  uses io.avaje.spi.test.SPIInterface.NestedSPIInterface;
+  uses io.avaje.inject.spi.InjectExtension;
  }
