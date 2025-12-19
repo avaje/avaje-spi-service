@@ -16,13 +16,13 @@ on:
 jobs:
   close_milestone:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Determine Target Release Tag (Automatic vs. Manual)
         id: determine_tag
         run: |
           MILESTONE_TITLE=""
-          
+
           if [[ "${{ github.event_name }}" == "release" ]]; then
             # Use the tag from the triggered release event
             RELEASE_TAG="${{ github.event.release.tag_name }}"
@@ -40,7 +40,7 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               /repos/${{ github.repository }}/releases/latest \
               --jq '.tag_name')
-              
+
             if [ -z "$LATEST_TAG" ]; then
               echo "🔴 Could not find the latest published release tag. Exiting."
               exit 1
@@ -51,7 +51,7 @@ jobs:
 
           # Remove the leading 'v' if present to match typical milestone naming
           MILESTONE_TITLE="${RELEASE_TAG#v}"
-          
+
           # Set the output variable for the next step
           echo "MILESTONE_TITLE=$MILESTONE_TITLE" >> $GITHUB_OUTPUT
           echo "Final Milestone Title: $MILESTONE_TITLE"
@@ -61,17 +61,16 @@ jobs:
 
       - name: Close Corresponding Milestone
         # Use the GitHub CLI to search for and close the milestone
-        uses: cli/cli-action@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          args: |
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
             MILESTONE_TITLE="${{ steps.determine_tag.outputs.MILESTONE_TITLE }}"
-            
+
             if [ -z "$MILESTONE_TITLE" ]; then
               echo "🛑 Milestone title is empty. Cannot proceed."
               exit 1
             fi
-            
+
             echo "Searching for open milestone with title: $MILESTONE_TITLE"
 
             # 1. Search for an open milestone with a title matching the release tag
