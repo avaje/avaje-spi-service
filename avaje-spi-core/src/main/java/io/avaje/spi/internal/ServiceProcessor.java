@@ -35,8 +35,10 @@ import javax.annotation.processing.SupportedOptions;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.ModuleElement;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
@@ -108,16 +110,12 @@ public class ServiceProcessor extends AbstractProcessor {
           "io.avaje.validation.spi.ValidationExtension");
 
   private static final Set<String> EXEMPT_SERVICES = new HashSet<>();
-
   private final Map<String, Set<String>> services = new ConcurrentHashMap<>();
-
   private Elements elements;
-
   private Types types;
-
   private ModuleElement moduleElement;
-
   private Path servicesDirectory;
+  private static final Set<String> PROCESSED = new HashSet<>();
 
   @Override
   public synchronized void init(ProcessingEnvironment env) {
@@ -157,6 +155,7 @@ public class ServiceProcessor extends AbstractProcessor {
     if (roundEnv.errorRaised()) {
       return false;
     }
+    APContext.setProjectModuleElement(tes, roundEnv);
     final var annotated =
       Optional.ofNullable(typeElement(ServiceProviderPrism.PRISM_TYPE))
         .map(roundEnv::getElementsAnnotatedWith)
@@ -203,11 +202,29 @@ public class ServiceProcessor extends AbstractProcessor {
 
   private void processSpis(final Collection<? extends Element> annotated) {
     for (final var type : ElementFilter.typesIn(annotated)) {
-      validate(type);
 
-      final List<TypeElement> contracts = getServiceInterfaces(type);
+      PROCESSED.add(elements.getBinaryName(type).toString());
+      Element methodSpi =
+          ElementFilter.methodsIn(type.getEnclosedElements()).stream()
+              .filter(
+                  m ->
+                      m.getSimpleName().contentEquals("provider")
+                          && m.getModifiers().contains(Modifier.STATIC)
+                          && m.getModifiers().contains(Modifier.PUBLIC)
+                          && m.getParameters().isEmpty())
+              .findAny()
+              .map(Element.class::cast)
+              .orElse(type);
+
+      validate(methodSpi);
+      final List<TypeElement> contracts =
+          getServiceInterfaces(
+              methodSpi instanceof TypeElement
+                  ? type
+                  : APContext.asTypeElement(((ExecutableElement) methodSpi).getReturnType()),
+              ServiceProviderPrism.getInstanceOn(type).value());
       if (contracts.isEmpty()) {
-        logError(type, "Service Providers must implement an SPI interface");
+        logError(type, "Service Providers must implement an SPI interface, or provide the SPI via a public static provider() method.");
       }
       for (final TypeElement contract : contracts) {
         final String cn = elements.getBinaryName(contract).toString();
@@ -218,21 +235,61 @@ public class ServiceProcessor extends AbstractProcessor {
     }
   }
 
-  private void validate(final TypeElement type) {
-    final var mods = type.getModifiers();
-    if (!mods.contains(Modifier.PUBLIC)
-        || type.getEnclosingElement().getKind() == ElementKind.CLASS
-            && !mods.contains(Modifier.STATIC)) {
-      logError(type, "A Service Provider must be a public class or a public static nested class");
+  private void validate(final Element element) {
+
+    var mods = element.getModifiers();
+    var kind = element.getKind();
+    boolean isPublic = mods.contains(Modifier.PUBLIC);
+    boolean isMethod = kind == ElementKind.METHOD;
+    boolean isStatic = mods.contains(Modifier.STATIC);
+
+    if (!isPublic) {
+      logError(
+          element,
+          "SPI provider must be public.",
+          element.getSimpleName());
+      return;
     }
-    final var noPublicConstructor =
-      ElementFilter.constructorsIn(type.getEnclosedElements()).stream()
-        .filter(e -> e.getParameters().isEmpty())
-        .filter(e -> e.getModifiers().contains(Modifier.PUBLIC))
-        .findAny()
-        .isEmpty();
-    if (noPublicConstructor) {
-      logError(type, "A Service Provider must have a public no-args constructor");
+
+    if (element instanceof TypeElement) {
+      validateConstructor(element);
+      if (((TypeElement) element).getNestingKind().isNested() && !isStatic) {
+        logError(element, "Nested SPI provider must be static.", element.getSimpleName());
+        return;
+      }
+    }
+    var current = element.getEnclosingElement();
+
+    while (current != null && !(current instanceof PackageElement)) {
+      mods = current.getModifiers();
+      kind = current.getKind();
+      isPublic = mods.contains(Modifier.PUBLIC);
+      isStatic = mods.contains(Modifier.STATIC);
+
+      boolean isTopLevel = (current.getEnclosingElement() instanceof PackageElement);
+
+      if (!isPublic) {
+        logError(element, "SPI provider classes must be public.");
+        return;
+      }
+
+      if (!isMethod && !isStatic && !isTopLevel) {
+        logError(element, "Nested SPI provider classes must be static.");
+        return;
+      }
+
+      current = current.getEnclosingElement();
+    }
+  }
+
+  private void validateConstructor(Element type) {
+    boolean hasPublicNoArg =
+        ElementFilter.constructorsIn(type.getEnclosedElements()).stream()
+            .anyMatch(
+                c -> c.getParameters().isEmpty() && c.getModifiers().contains(Modifier.PUBLIC));
+
+    if (!hasPublicNoArg) {
+      logError(type, "A Service Provider must have a public no-args constructor.");
     }
   }
 
@@ -310,9 +367,8 @@ public class ServiceProcessor extends AbstractProcessor {
     return allServices;
   }
 
-  private List<TypeElement> getServiceInterfaces(TypeElement type) {
+  private List<TypeElement> getServiceInterfaces(TypeElement type, List<TypeMirror> spis) {
     final List<TypeElement> typeElementList = new ArrayList<>();
-    final var spis = ServiceProviderPrism.getInstanceOn(type).value();
     final var interfaces = type.getInterfaces();
     final boolean hasBaseClass = type.getSuperclass().getKind() != TypeKind.NONE && !isObject(type.getSuperclass());
     final boolean hasInterfaces = !interfaces.isEmpty();
@@ -452,12 +508,13 @@ public class ServiceProcessor extends AbstractProcessor {
   }
 
   private boolean isNotSameModule(String type) {
-    var element = typeElement(type);
-    return element == null
-        || !elements
-            .getModuleOf(element)
-            .getSimpleName()
-            .contentEquals(moduleElement.getSimpleName());
+    var element = typeElement(Utils.fqnFromBinaryType(type));
+    return !PROCESSED.contains(type)
+        && (element == null
+            || !elements
+                .getModuleOf(element)
+                .getSimpleName()
+                .contentEquals(moduleElement.getSimpleName()));
   }
 
   private static boolean buildPluginAvailable() {
