@@ -116,6 +116,7 @@ public class ServiceProcessor extends AbstractProcessor {
   private ModuleElement moduleElement;
   private Path servicesDirectory;
   private static final Set<String> PROCESSED = new HashSet<>();
+  private static final Set<String> EXEMPT_IMPLS = new HashSet<>();
 
   @Override
   public synchronized void init(ProcessingEnvironment env) {
@@ -217,9 +218,15 @@ public class ServiceProcessor extends AbstractProcessor {
               .orElse(type);
 
       validate(methodSpi);
+      boolean isType = methodSpi instanceof TypeElement;
+
+      if (!isType) {
+        EXEMPT_IMPLS.add(elements.getBinaryName(type).toString());
+      }
+
       final List<TypeElement> contracts =
           getServiceInterfaces(
-              methodSpi instanceof TypeElement
+              isType
                   ? type
                   : APContext.asTypeElement(((ExecutableElement) methodSpi).getReturnType()),
               ServiceProviderPrism.getInstanceOn(type).value());
@@ -257,7 +264,11 @@ public class ServiceProcessor extends AbstractProcessor {
         logError(element, "Nested SPI provider must be static.", element.getSimpleName());
         return;
       }
+    } else if (APContext.getProjectModuleElement().isUnnamed()) {
+      logError(element, "SPI provider methods are only supported in named modules.");
+      return;
     }
+
     var current = element.getEnclosingElement();
 
     while (current != null && !(current instanceof PackageElement)) {
@@ -319,7 +330,9 @@ public class ServiceProcessor extends AbstractProcessor {
            final var pw = new PrintWriter(new OutputStreamWriter(file, StandardCharsets.UTF_8));) {
 
         for (final String value : e.getValue()) {
-          pw.println(value);
+          if (!EXEMPT_IMPLS.contains(value)) {
+            pw.println(value);
+          }
         }
       } catch (final IOException x) {
         logError("Failed to write service definition files: %s", x);
