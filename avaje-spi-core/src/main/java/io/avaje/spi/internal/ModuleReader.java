@@ -37,13 +37,18 @@ final class ModuleReader {
         .provides()
         .forEach(
             p -> {
-              final var contract = APContext.elements().getBinaryName(p.getService()).toString();
-              if (!missingServicesMap.containsKey(contract)) {
+              final var contractBinary =
+                  APContext.elements().getBinaryName(p.getService()).toString();
+              final var contractName = p.getService().getQualifiedName().toString();
+              if (!missingServicesMap.containsKey(contractBinary)
+                  && !missingServicesMap.containsKey(contractName)) {
                 return;
               }
               var impls = p.getImplementations();
-              var missing = missingServicesMap.get(contract);
-              
+              var missing =
+                  missingServicesMap.getOrDefault(
+                      contractBinary, missingServicesMap.get(contractName));
+
               impls.stream()
                   .forEach(
                       x -> {
