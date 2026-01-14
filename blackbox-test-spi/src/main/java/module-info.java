@@ -4,6 +4,8 @@ module io.avaje.spi.blackbox {
   requires io.avaje.inject;
   requires static io.avaje.spi;
   requires java.compiler;
+  requires io.avaje.http.api;
+  requires io.avaje.http.client;
 
   provides SPIInterface with
       CommonClass,
@@ -23,6 +25,9 @@ module io.avaje.spi.blackbox {
       SPIInterface.NestedSPIInterface.DefaultNested$$SPIInterface;
   provides io.avaje.inject.spi.InjectExtension with
       InjectProvider;
+  provides io.avaje.http.client.HttpClient.GeneratedComponent with
+      io.avaje.spi.test.httpclient.GeneratedHttpComponent,
+      io.avaje.spi.test.pkgprivate.PkgprivateHttpComponent;
 
   uses CommonClass;
   uses SPIInterface;
