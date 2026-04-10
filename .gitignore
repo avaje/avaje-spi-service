@@ -8,6 +8,7 @@ build/
 *.factorypath
 *.project
 *.processors
+!**/resources/META-INF/gradle/incremental.annotation.processors
 */bin/
 .DS_Store
 
